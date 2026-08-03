@@ -325,24 +325,20 @@ export default function ActiveSprint({
           </div>
         </div>
 
-        {/* Main content area: timer + question, centered as a group */}
-        <div className="sprint-main-content">
-
-        {/* Massive Countdown Timer (7.25rem) */}
-        <div className="ringless-timer-centered">
-          <div className={`time-display-massive-focal ${isPaused ? 'timer-paused-blink' : ''}`}>
-            {formatTime(timeLeftSec)}
+        {/* ZONE 2: Middle — timer + divider/question/meta group, centered via space-evenly */}
+        <div className="sprint-middle-zone">
+          {/* Massive Countdown Timer (7.25rem) */}
+          <div className="ringless-timer-centered">
+            <div className={`time-display-massive-focal ${isPaused ? 'timer-paused-blink' : ''}`}>
+              {formatTime(timeLeftSec)}
+            </div>
           </div>
-        </div>
 
-        {/* Centered Question Body */}
-        {currentQuestion ? (
-          <div className="unified-body">
+          {/* Divider + Question Name + Meta Row — tightly grouped sub-unit */}
+          {currentQuestion ? (
             <div className="divider-question-wrapper">
               <hr className="timer-question-divider" />
               <h2 className="unified-question-title">{currentQuestion.name}</h2>
-              
-              {/* UNIFIED Per-Question Stats Row: Link (Neutral) • Worth • Attempts */}
               <div className="per-question-meta-row">
                 <a
                   href={getQuestionLink(currentQuestion)}
@@ -354,24 +350,31 @@ export default function ActiveSprint({
                   <ExternalLink size={14} className="text-muted" />
                   <span className="text-secondary font-semibold">Link</span>
                 </a>
-
                 <span className="dot-sep">•</span>
-
                 <div className="per-q-pill pts-per-q">
                   <Zap size={14} className="text-amber" />
                   <span>Worth <strong className="text-gold">+{questionValue} pts</strong></span>
                 </div>
-
                 <span className="dot-sep">•</span>
-
                 <div className="per-q-pill attempts-per-q">
                   <RotateCcw size={14} className="text-muted" />
                   <span>Attempts: <strong className={`text-primary ${attemptsAnimTrigger ? 'counter-tween-pop' : ''}`}>{attempts + 1}</strong></span>
                 </div>
               </div>
             </div>
+          ) : (
+            <div className="empty-state py-8">
+              <h3>Sprint Queue Complete!</h3>
+              <button className="btn btn-primary mt-4" onClick={handleCompleteSprint}>
+                View Sprint Summary
+              </button>
+            </div>
+          )}
+        </div>
 
-            {/* Primary Action: Prominent Taller Solved Button */}
+        {/* ZONE 3: Bottom actions — pinned to bottom via outer space-between */}
+        {currentQuestion && (
+          <div className="sprint-bottom-actions">
             <div className="primary-done-wrapper">
               <button
                 className={`btn-done-primary ${animState === 'solved' ? 'btn-anim-flash' : ''}`}
@@ -386,8 +389,6 @@ export default function ActiveSprint({
                 <span>{animState === 'solved' ? 'Solved!' : 'Solved'}</span>
               </button>
             </div>
-
-            {/* Secondary Actions with Meaningful Distinct Hover States */}
             <div className="secondary-actions-compact-row">
               <button
                 className="compact-sec-btn attempt-btn"
@@ -398,7 +399,6 @@ export default function ActiveSprint({
                 <AlertCircle size={14} />
                 <span>+1 Wrong</span>
               </button>
-
               <button
                 className="compact-sec-btn easy-btn"
                 onClick={handleTooEasy}
@@ -408,7 +408,6 @@ export default function ActiveSprint({
                 <RefreshCw size={14} />
                 <span>Too Easy</span>
               </button>
-
               <button
                 className="compact-sec-btn gaveup-btn"
                 onClick={handleGaveUp}
@@ -420,16 +419,7 @@ export default function ActiveSprint({
               </button>
             </div>
           </div>
-        ) : (
-          <div className="empty-state py-8">
-            <h3>Sprint Queue Complete!</h3>
-            <button className="btn btn-primary mt-4" onClick={handleCompleteSprint}>
-              View Sprint Summary
-            </button>
-          </div>
         )}
-
-        </div> {/* end .sprint-main-content */}
       </div>
 
       {/* Confirmation Modal */}
@@ -468,22 +458,28 @@ export default function ActiveSprint({
 
         .unified-sprint-card {
           flex: 1;
-          padding: 2.5rem 2.25rem 3rem 2.25rem;
+          padding: 2.5rem 2.25rem 2rem 2.25rem;
           display: flex;
           flex-direction: column;
-          justify-content: flex-start;
-          gap: 1.5rem;
+          justify-content: space-between;
           position: relative;
           transition: transform 0.35s ease, opacity 0.35s ease;
         }
 
-        .sprint-main-content {
+        .sprint-middle-zone {
           flex: 1;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
-          gap: 1.5rem;
+          justify-content: space-evenly;
+          width: 100%;
+        }
+
+        .sprint-bottom-actions {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 1rem;
           width: 100%;
         }
 
@@ -677,16 +673,6 @@ export default function ActiveSprint({
           50%, 100% { opacity: 0.2; }
         }
 
-        .unified-body {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-          gap: 1rem;
-          padding-top: 0;
-          margin-top: 0;
-          width: 100%;
-        }
 
         /* Dedicated Divider+Question Wrapper */
         .divider-question-wrapper {
@@ -701,7 +687,7 @@ export default function ActiveSprint({
           width: 100%;
           border: none;
           border-top: 1px solid var(--border-subtle);
-          margin: 0;
+          margin: 1rem;
         }
 
         .unified-question-title {
@@ -752,7 +738,7 @@ export default function ActiveSprint({
         .primary-done-wrapper {
           width: 100%;
           max-width: 440px;
-          margin-top: 0.25rem;
+          margin-top: 2rem;
         }
 
         .btn-done-primary {
