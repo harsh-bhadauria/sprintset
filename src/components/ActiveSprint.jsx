@@ -325,6 +325,9 @@ export default function ActiveSprint({
           </div>
         </div>
 
+        {/* Main content area: timer + question, centered as a group */}
+        <div className="sprint-main-content">
+
         {/* Massive Countdown Timer (7.25rem) */}
         <div className="ringless-timer-centered">
           <div className={`time-display-massive-focal ${isPaused ? 'timer-paused-blink' : ''}`}>
@@ -425,6 +428,8 @@ export default function ActiveSprint({
             </button>
           </div>
         )}
+
+        </div> {/* end .sprint-main-content */}
       </div>
 
       {/* Confirmation Modal */}
@@ -470,6 +475,16 @@ export default function ActiveSprint({
           gap: 1.5rem;
           position: relative;
           transition: transform 0.35s ease, opacity 0.35s ease;
+        }
+
+        .sprint-main-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 1.5rem;
+          width: 100%;
         }
 
         /* Pre-Sprint 3-2-1 Heavy Blur Overlay */
