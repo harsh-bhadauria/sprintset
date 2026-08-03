@@ -325,44 +325,46 @@ export default function ActiveSprint({
           </div>
         </div>
 
-        {/* Massive Countdown Timer (7.25rem) - Vertically Centered via Auto Margins */}
+        {/* Massive Countdown Timer (7.25rem) */}
         <div className="ringless-timer-centered">
           <div className={`time-display-massive-focal ${isPaused ? 'timer-paused-blink' : ''}`}>
             {formatTime(timeLeftSec)}
           </div>
         </div>
 
-        {/* Centered Question Body with Predictable Divider and Question Title Spacing */}
+        {/* Centered Question Body */}
         {currentQuestion ? (
           <div className="unified-body">
-            <hr className="timer-question-divider" />
-            <h2 className="unified-question-title">{currentQuestion.name}</h2>
+            <div className="divider-question-wrapper">
+              <hr className="timer-question-divider" />
+              <h2 className="unified-question-title">{currentQuestion.name}</h2>
+              
+              {/* UNIFIED Per-Question Stats Row: Link (Neutral) • Worth • Attempts */}
+              <div className="per-question-meta-row">
+                <a
+                  href={getQuestionLink(currentQuestion)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="per-q-pill link-per-q-neutral"
+                  title={currentQuestion.link ? 'Open Problem Page' : 'Search Problem on Google'}
+                >
+                  <ExternalLink size={14} className="text-muted" />
+                  <span className="text-secondary font-semibold">Link</span>
+                </a>
 
-            {/* UNIFIED Per-Question Stats Row: Link (Neutral) • Worth • Attempts */}
-            <div className="per-question-meta-row">
-              <a
-                href={getQuestionLink(currentQuestion)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="per-q-pill link-per-q-neutral"
-                title={currentQuestion.link ? 'Open Problem Page' : 'Search Problem on Google'}
-              >
-                <ExternalLink size={14} className="text-muted" />
-                <span className="text-secondary font-semibold">Link</span>
-              </a>
+                <span className="dot-sep">•</span>
 
-              <span className="dot-sep">•</span>
+                <div className="per-q-pill pts-per-q">
+                  <Zap size={14} className="text-amber" />
+                  <span>Worth <strong className="text-gold">+{questionValue} pts</strong></span>
+                </div>
 
-              <div className="per-q-pill pts-per-q">
-                <Zap size={14} className="text-amber" />
-                <span>Worth <strong className="text-gold">+{questionValue} pts</strong></span>
-              </div>
+                <span className="dot-sep">•</span>
 
-              <span className="dot-sep">•</span>
-
-              <div className="per-q-pill attempts-per-q">
-                <RotateCcw size={14} className="text-muted" />
-                <span>Attempts: <strong className={`text-primary ${attemptsAnimTrigger ? 'counter-tween-pop' : ''}`}>{attempts + 1}</strong></span>
+                <div className="per-q-pill attempts-per-q">
+                  <RotateCcw size={14} className="text-muted" />
+                  <span>Attempts: <strong className={`text-primary ${attemptsAnimTrigger ? 'counter-tween-pop' : ''}`}>{attempts + 1}</strong></span>
+                </div>
               </div>
             </div>
 
@@ -464,8 +466,8 @@ export default function ActiveSprint({
           padding: 2.5rem 2.25rem 2rem 2.25rem;
           display: flex;
           flex-direction: column;
-          justify-content: flex-start; /* Changed from space-between to flex-start */
-          gap: 1.5rem; /* Predictable explicit gap between top control bar, timer, and body */
+          justify-content: center; /* Vertically center the entire content block */
+          gap: 1.25rem; /* Explicit predictable gap between sections */
           position: relative;
           transition: transform 0.35s ease, opacity 0.35s ease;
         }
@@ -630,15 +632,14 @@ export default function ActiveSprint({
           border-color: #f59e0b;
         }
 
-        /* Massive Countdown Timer (7.25rem) - Centered in Available Space via Auto Margins */
+        /* Massive Countdown Timer (7.25rem) */
         .ringless-timer-centered {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           padding: 0;
-          margin-top: auto;
-          margin-bottom: auto;
+          margin: 0;
         }
 
         .time-display-massive-focal {
@@ -672,11 +673,20 @@ export default function ActiveSprint({
           width: 100%;
         }
 
+        /* Dedicated Divider+Question Wrapper */
+        .divider-question-wrapper {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.35rem; /* DIRECT GAP between divider line, question title, and meta row */
+        }
+
         .timer-question-divider {
           width: 100%;
           border: none;
           border-top: 1px solid var(--border-subtle);
-          margin: 0 0 0.4rem 0;
+          margin: 0;
         }
 
         .unified-question-title {
@@ -700,6 +710,7 @@ export default function ActiveSprint({
           padding: 0.4rem 1.25rem;
           border-radius: var(--radius-full);
           font-size: 0.88rem;
+          margin-top: 0.15rem;
         }
 
         .per-q-pill {
