@@ -694,7 +694,7 @@ export default function ActiveSprint({
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.35rem; /* DIRECT GAP between divider line, question title, and meta row */
+          gap: 1rem;
         }
 
         .timer-question-divider {
