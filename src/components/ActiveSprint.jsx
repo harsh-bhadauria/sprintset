@@ -455,6 +455,7 @@ export default function ActiveSprint({
         .active-sprint-container {
           max-width: 1100px;
           margin: 1rem auto;
+          min-height: calc(100vh - 140px);
           display: flex;
           flex-direction: column;
           position: relative;
