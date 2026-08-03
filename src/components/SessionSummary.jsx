@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Award, CheckCircle2, XCircle, Clock, Home, Play, Edit3 } from 'lucide-react';
 
 export function formatTopicName(topic) {
@@ -152,7 +153,7 @@ export default function SessionSummary({
       const rect = e.currentTarget.getBoundingClientRect();
       setPopoverState({
         qId,
-        top: Math.round(rect.bottom + 6),
+        top: Math.round(rect.bottom + 4),
         left: Math.round(rect.left)
       });
     }
@@ -325,13 +326,15 @@ export default function SessionSummary({
         </div>
       </div>
 
-      {/* Floating Fixed Viewport Popover Menu Anchored Directly to Clicked Chip */}
-      {popoverState && (
+      {/* React Portal renders popover directly into document.body, escaping parent backdrop-filters */}
+      {popoverState && createPortal(
         <div
-          className="fixed-conf-popover glass-card"
+          className="portal-conf-popover"
           style={{
+            position: 'fixed',
             top: `${popoverState.top}px`,
-            left: `${popoverState.left}px`
+            left: `${popoverState.left}px`,
+            zIndex: 999999
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -362,7 +365,8 @@ export default function SessionSummary({
             <span className="conf-dot dot-shaky" />
             <span>Shaky</span>
           </button>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style>{`
@@ -612,22 +616,16 @@ export default function SessionSummary({
         .conf-ok .conf-dot { background: #60a5fa; }
         .conf-shaky .conf-dot { background: #f59e0b; }
 
-        /* Floating Viewport Popover Menu Anchored to Chip */
-        .fixed-conf-popover {
-          position: fixed !important;
-          z-index: 999999 !important;
-          bottom: auto !important;
-          right: auto !important;
-          margin: 0 !important;
-          transform: none !important;
+        /* Portal Popover Menu rendered directly onto document.body */
+        .portal-conf-popover {
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
           padding: 0.65rem;
           border-radius: var(--radius-md);
-          background: var(--bg-secondary);
-          border: 1px solid var(--border-subtle);
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+          background: #11141d;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
           min-width: 120px;
           animation: fadeIn 0.12s ease;
         }
@@ -656,7 +654,7 @@ export default function SessionSummary({
         }
 
         .popover-option-btn:hover {
-          background: var(--bg-card-hover);
+          background: rgba(255, 255, 255, 0.08);
         }
 
         .option-solid { color: #10b981; }

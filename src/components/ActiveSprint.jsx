@@ -332,12 +332,10 @@ export default function ActiveSprint({
           </div>
         </div>
 
-        {/* Shifted Up Horizontal Divider Line */}
-        <hr className="timer-question-divider" />
-
-        {/* Centered Question Body & Per-Question Stats */}
+        {/* Centered Question Body & Per-Question Stats (with divider inside body to prevent flex space-between stretching) */}
         {currentQuestion ? (
           <div className="unified-body">
+            <hr className="timer-question-divider" />
             <h2 className="unified-question-title">{currentQuestion.name}</h2>
 
             {/* UNIFIED Per-Question Stats Row: Link (Neutral) • Worth • Attempts */}
@@ -463,11 +461,11 @@ export default function ActiveSprint({
 
         .unified-sprint-card {
           flex: 1;
-          padding: 2.75rem 2.25rem;
+          padding: 2.5rem 2.25rem 2rem 2.25rem;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          gap: 1.5rem;
+          gap: 1.25rem;
           position: relative;
           transition: transform 0.35s ease, opacity 0.35s ease;
         }
@@ -662,23 +660,23 @@ export default function ActiveSprint({
           50%, 100% { opacity: 0.2; }
         }
 
-        /* Shifted Up Horizontal Divider Line */
-        .timer-question-divider {
-          width: 100%;
-          border: none;
-          border-top: 1px solid var(--border-subtle);
-          margin: 0.15rem 0 0.25rem 0;
-        }
-
-        /* Question Body with Visual Proximity to Timer */
+        /* Question Body with Divider Inside to Prevent Flex Gap Stretching */
         .unified-body {
           display: flex;
           flex-direction: column;
           align-items: center;
           text-align: center;
-          gap: 1.25rem;
-          padding-top: 0.25rem;
+          gap: 0.75rem;
+          padding-top: 0;
+          margin-top: 0;
           width: 100%;
+        }
+
+        .timer-question-divider {
+          width: 100%;
+          border: none;
+          border-top: 1px solid var(--border-subtle);
+          margin: 0 0 0.25rem 0;
         }
 
         .unified-question-title {
@@ -686,7 +684,9 @@ export default function ActiveSprint({
           font-size: 2.5rem;
           font-weight: 800;
           color: var(--text-primary);
-          line-height: 1.25;
+          line-height: 1.15;
+          margin: 0;
+          padding: 0;
           max-width: 900px;
         }
 
@@ -726,7 +726,7 @@ export default function ActiveSprint({
         .primary-done-wrapper {
           width: 100%;
           max-width: 440px;
-          margin-top: 0.35rem;
+          margin-top: 0.25rem;
         }
 
         .btn-done-primary {
