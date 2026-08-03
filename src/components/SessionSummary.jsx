@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Award, CheckCircle2, XCircle, Clock, Home, Play, Edit3 } from 'lucide-react';
 
 export function formatTopicName(topic) {
@@ -53,7 +53,8 @@ export default function SessionSummary({
     isEndedEarly = false
   } = session || {};
 
-  const [activePopoverQId, setActivePopoverQId] = useState(null);
+  // Fixed floating popover state: { qId, top, left }
+  const [popoverState, setPopoverState] = useState(null);
 
   const localResults = results;
   const totalTarget = totalQuota || localResults.length;
@@ -124,14 +125,39 @@ export default function SessionSummary({
     }
   };
 
-  const handleSelectConfidenceOption = (qId, option) => {
-    onUpdateSessionConfidence(sessionId, qId, option);
-    setActivePopoverQId(null);
+  // Close floating popover on click outside
+  useEffect(() => {
+    const handleOutsideClick = () => setPopoverState(null);
+    if (popoverState) {
+      window.addEventListener('click', handleOutsideClick);
+      return () => window.removeEventListener('click', handleOutsideClick);
+    }
+  }, [popoverState]);
+
+  const handleChipClick = (e, qId) => {
+    e.stopPropagation();
+    if (popoverState && popoverState.qId === qId) {
+      setPopoverState(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setPopoverState({
+        qId,
+        top: rect.bottom + 4,
+        left: Math.max(10, rect.left)
+      });
+    }
+  };
+
+  const handleSelectOption = (confidence) => {
+    if (popoverState && popoverState.qId) {
+      onUpdateSessionConfidence(sessionId, popoverState.qId, confidence);
+    }
+    setPopoverState(null);
   };
 
   return (
     <div className="summary-container glass-card">
-      {/* Header Banner (Distinct Per-Outcome Title, Badge & Subtitle) */}
+      {/* Header Banner */}
       <div className="summary-header">
         <div className="banner-title-row">
           <h2 className="summary-title">{outcomeInfo.title}</h2>
@@ -175,7 +201,7 @@ export default function SessionSummary({
         </div>
       </div>
 
-      {/* Action Navigation Buttons (Horizontally Centered below KPI cards, above Breakdown table) */}
+      {/* Action Navigation Buttons */}
       <div className="summary-actions-top">
         <button className="btn btn-secondary" onClick={onGoHome}>
           <Home size={16} />
@@ -230,7 +256,7 @@ export default function SessionSummary({
                       {/* Question Name */}
                       <td className="font-semibold text-primary">{r.questionName}</td>
 
-                      {/* Topic Pill matching Question Bank style (badge badge-topic) */}
+                      {/* Topic Pill */}
                       <td>
                         <span className="badge badge-topic">
                           {formatTopicName(r.topic)}
@@ -252,53 +278,19 @@ export default function SessionSummary({
                       {/* Time Spent */}
                       <td className="font-mono text-muted">{r.timeSec ? `${r.timeSec}s` : '-'}</td>
 
-                      {/* Confidence Popover Selector Column */}
-                      <td className="relative-popover-cell">
+                      {/* Confidence Selector Cell */}
+                      <td>
                         {r.status === 'done' ? (
-                          <div className="confidence-chip-popover-wrapper">
-                            <button
-                              type="button"
-                              className={`conf-pill-btn conf-${displayConfidence}`}
-                              onClick={() => setActivePopoverQId(activePopoverQId === r.questionId ? null : r.questionId)}
-                            >
-                              <span className="conf-dot" />
-                              <span className="conf-label">{displayConfidence ? displayConfidence.toUpperCase() : 'SET'}</span>
-                              <Edit3 size={11} className="conf-pencil-icon" />
-                            </button>
-
-                            {/* Direct Popover Menu (Shaky / OK / Solid) */}
-                            {activePopoverQId === r.questionId && (
-                              <div className="conf-popover-menu glass-card">
-                                <div className="popover-header-title">Select Confidence:</div>
-                                <button
-                                  type="button"
-                                  className="popover-option-btn option-solid"
-                                  onClick={() => handleSelectConfidenceOption(r.questionId, 'solid')}
-                                >
-                                  <span className="conf-dot dot-solid" />
-                                  <span>Solid</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="popover-option-btn option-ok"
-                                  onClick={() => handleSelectConfidenceOption(r.questionId, 'ok')}
-                                >
-                                  <span className="conf-dot dot-ok" />
-                                  <span>OK</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="popover-option-btn option-shaky"
-                                  onClick={() => handleSelectConfidenceOption(r.questionId, 'shaky')}
-                                >
-                                  <span className="conf-dot dot-shaky" />
-                                  <span>Shaky</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            type="button"
+                            className={`conf-pill-btn conf-${displayConfidence}`}
+                            onClick={(e) => handleChipClick(e, r.questionId)}
+                            title="Click to override confidence"
+                          >
+                            <span className="conf-dot" />
+                            <span className="conf-label">{displayConfidence ? displayConfidence.toUpperCase() : 'SET'}</span>
+                            <Edit3 size={11} className="conf-pencil-icon" />
+                          </button>
                         ) : (
                           <span className="text-muted text-xs italic">-</span>
                         )}
@@ -317,6 +309,48 @@ export default function SessionSummary({
           </table>
         </div>
       </div>
+
+      {/* Floating Fixed Popover Menu positioned over viewport */}
+      {popoverState && (
+        <div
+          className="fixed-conf-popover glass-card"
+          style={{
+            position: 'fixed',
+            top: `${popoverState.top}px`,
+            left: `${popoverState.left}px`,
+            zIndex: 99999
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="popover-header-title">Select Confidence:</div>
+          <button
+            type="button"
+            className="popover-option-btn option-solid"
+            onClick={() => handleSelectOption('solid')}
+          >
+            <span className="conf-dot dot-solid" />
+            <span>Solid</span>
+          </button>
+
+          <button
+            type="button"
+            className="popover-option-btn option-ok"
+            onClick={() => handleSelectOption('ok')}
+          >
+            <span className="conf-dot dot-ok" />
+            <span>OK</span>
+          </button>
+
+          <button
+            type="button"
+            className="popover-option-btn option-shaky"
+            onClick={() => handleSelectOption('shaky')}
+          >
+            <span className="conf-dot dot-shaky" />
+            <span>Shaky</span>
+          </button>
+        </div>
+      )}
 
       <style>{`
         .summary-container {
@@ -438,7 +472,6 @@ export default function SessionSummary({
           color: var(--text-muted);
         }
 
-        /* Horizontally Centered Actions Row */
         .summary-actions-top {
           display: flex;
           align-items: center;
@@ -514,16 +547,6 @@ export default function SessionSummary({
           color: #ef4444;
         }
 
-        /* Confidence Popover Selector Cell */
-        .relative-popover-cell {
-          position: relative;
-        }
-
-        .confidence-chip-popover-wrapper {
-          position: relative;
-          display: inline-block;
-        }
-
         .conf-pill-btn {
           display: inline-flex;
           align-items: center;
@@ -576,21 +599,17 @@ export default function SessionSummary({
         .conf-ok .conf-dot { background: #60a5fa; }
         .conf-shaky .conf-dot { background: #f59e0b; }
 
-        /* Popover Menu Overlay */
-        .conf-popover-menu {
-          position: absolute;
-          top: 110%;
-          left: 0;
-          z-index: 50;
+        /* Floating Viewport Popover Menu */
+        .fixed-conf-popover {
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
-          padding: 0.6rem;
+          padding: 0.65rem;
           border-radius: var(--radius-md);
-          background: var(--bg-card);
+          background: var(--bg-secondary);
           border: 1px solid var(--border-subtle);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-          min-width: 110px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+          min-width: 120px;
           animation: fadeIn 0.15s ease;
         }
 
@@ -606,7 +625,7 @@ export default function SessionSummary({
           display: flex;
           align-items: center;
           gap: 0.45rem;
-          padding: 0.35rem 0.6rem;
+          padding: 0.4rem 0.65rem;
           border-radius: var(--radius-sm);
           font-size: 0.78rem;
           font-weight: 700;

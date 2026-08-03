@@ -325,14 +325,17 @@ export default function ActiveSprint({
           </div>
         </div>
 
-        {/* Massive Countdown Timer (7.25rem) with Discrete Sudden Blink */}
+        {/* Massive Countdown Timer (7.25rem) */}
         <div className="ringless-timer-centered">
           <div className={`time-display-massive-focal ${isPaused ? 'timer-paused-blink' : ''}`}>
             {formatTime(timeLeftSec)}
           </div>
         </div>
 
-        {/* Centered Question Body & Per-Question Stats (tighter top proximity to timer) */}
+        {/* Shifted Up Horizontal Divider Line */}
+        <hr className="timer-question-divider" />
+
+        {/* Centered Question Body & Per-Question Stats */}
         {currentQuestion ? (
           <div className="unified-body">
             <h2 className="unified-question-title">{currentQuestion.name}</h2>
@@ -464,7 +467,7 @@ export default function ActiveSprint({
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          gap: 1.75rem;
+          gap: 1.5rem;
           position: relative;
           transition: transform 0.35s ease, opacity 0.35s ease;
         }
@@ -629,7 +632,7 @@ export default function ActiveSprint({
           border-color: #f59e0b;
         }
 
-        /* Massive Countdown Timer (7.25rem) with Reduced Bottom Margin for Proximity */
+        /* Massive Countdown Timer (7.25rem) */
         .ringless-timer-centered {
           display: flex;
           flex-direction: column;
@@ -659,15 +662,22 @@ export default function ActiveSprint({
           50%, 100% { opacity: 0.2; }
         }
 
-        /* Question Body with Reduced Top Padding for Closer Visual Proximity to Timer */
+        /* Shifted Up Horizontal Divider Line */
+        .timer-question-divider {
+          width: 100%;
+          border: none;
+          border-top: 1px solid var(--border-subtle);
+          margin: 0.15rem 0 0.25rem 0;
+        }
+
+        /* Question Body with Visual Proximity to Timer */
         .unified-body {
           display: flex;
           flex-direction: column;
           align-items: center;
           text-align: center;
           gap: 1.25rem;
-          border-top: 1px solid var(--border-subtle);
-          padding-top: 0.75rem;
+          padding-top: 0.25rem;
           width: 100%;
         }
 
