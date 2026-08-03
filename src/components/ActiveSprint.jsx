@@ -332,10 +332,12 @@ export default function ActiveSprint({
           </div>
         </div>
 
-        {/* Centered Question Body & Per-Question Stats (with divider inside body to prevent flex space-between stretching) */}
+        {/* Reverted Divider Position: Close to Timer */}
+        <hr className="timer-question-divider" />
+
+        {/* Centered Question Body & Per-Question Stats */}
         {currentQuestion ? (
           <div className="unified-body">
-            <hr className="timer-question-divider" />
             <h2 className="unified-question-title">{currentQuestion.name}</h2>
 
             {/* UNIFIED Per-Question Stats Row: Link (Neutral) • Worth • Attempts */}
@@ -465,7 +467,7 @@ export default function ActiveSprint({
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          gap: 1.25rem;
+          gap: 1rem;
           position: relative;
           transition: transform 0.35s ease, opacity 0.35s ease;
         }
@@ -660,23 +662,24 @@ export default function ActiveSprint({
           50%, 100% { opacity: 0.2; }
         }
 
-        /* Question Body with Divider Inside to Prevent Flex Gap Stretching */
+        /* Reverted Divider Position: Directly below timer */
+        .timer-question-divider {
+          width: 100%;
+          border: none;
+          border-top: 1px solid var(--border-subtle);
+          margin: 0.15rem 0 0 0;
+        }
+
+        /* Question Body: Question Name moved UP toward divider via negative margin-top */
         .unified-body {
           display: flex;
           flex-direction: column;
           align-items: center;
           text-align: center;
-          gap: 0.75rem;
+          gap: 0.85rem;
           padding-top: 0;
           margin-top: 0;
           width: 100%;
-        }
-
-        .timer-question-divider {
-          width: 100%;
-          border: none;
-          border-top: 1px solid var(--border-subtle);
-          margin: 0 0 0.25rem 0;
         }
 
         .unified-question-title {
@@ -685,7 +688,8 @@ export default function ActiveSprint({
           font-weight: 800;
           color: var(--text-primary);
           line-height: 1.15;
-          margin: 0;
+          margin-top: -0.45rem;
+          margin-bottom: 0;
           padding: 0;
           max-width: 900px;
         }

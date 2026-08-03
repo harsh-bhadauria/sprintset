@@ -326,7 +326,7 @@ export default function SessionSummary({
         </div>
       </div>
 
-      {/* React Portal renders popover directly into document.body, escaping parent backdrop-filters */}
+      {/* Theme-aware Portal Popover Menu rendered directly onto document.body */}
       {popoverState && createPortal(
         <div
           className="portal-conf-popover"
@@ -616,18 +616,21 @@ export default function SessionSummary({
         .conf-ok .conf-dot { background: #60a5fa; }
         .conf-shaky .conf-dot { background: #f59e0b; }
 
-        /* Portal Popover Menu rendered directly onto document.body */
+        /* Theme-Aware Portal Popover Menu rendered directly onto document.body */
         .portal-conf-popover {
+          position: fixed !important;
+          z-index: 999999 !important;
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
           padding: 0.65rem;
           border-radius: var(--radius-md);
-          background: #11141d;
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
-          min-width: 120px;
+          background: var(--bg-card);
+          border: 1px solid var(--border-subtle);
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+          min-width: 130px;
           animation: fadeIn 0.12s ease;
+          color: var(--text-primary);
         }
 
         .popover-header-title {
@@ -635,13 +638,14 @@ export default function SessionSummary({
           color: var(--text-muted);
           font-weight: 700;
           text-transform: uppercase;
+          letter-spacing: 0.05em;
           margin-bottom: 0.15rem;
         }
 
         .popover-option-btn {
           display: flex;
           align-items: center;
-          gap: 0.45rem;
+          gap: 0.5rem;
           padding: 0.4rem 0.65rem;
           border-radius: var(--radius-sm);
           font-size: 0.78rem;
@@ -654,7 +658,7 @@ export default function SessionSummary({
         }
 
         .popover-option-btn:hover {
-          background: rgba(255, 255, 255, 0.08);
+          background: var(--bg-card-hover);
         }
 
         .option-solid { color: #10b981; }
