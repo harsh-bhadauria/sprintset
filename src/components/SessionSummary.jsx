@@ -151,9 +151,22 @@ export default function SessionSummary({
       setPopoverState(null);
     } else {
       const rect = e.currentTarget.getBoundingClientRect();
+      const popoverHeight = 145; // Height of header + 3 options + padding
+      const viewportHeight = window.innerHeight;
+      
+      const spaceBelow = viewportHeight - rect.bottom;
+      let topPos = rect.bottom + 4;
+
+      // Smart positioning: Flip upward if close to bottom of screen
+      if (spaceBelow < popoverHeight && rect.top > popoverHeight) {
+        topPos = rect.top - popoverHeight - 4;
+      } else {
+        topPos = Math.min(topPos, viewportHeight - popoverHeight - 12);
+      }
+
       setPopoverState({
         qId,
-        top: Math.round(rect.bottom + 4),
+        top: Math.max(10, Math.round(topPos)),
         left: Math.round(rect.left)
       });
     }
@@ -326,7 +339,7 @@ export default function SessionSummary({
         </div>
       </div>
 
-      {/* Theme-aware Portal Popover Menu rendered directly onto document.body */}
+      {/* Theme-Aware Fully Opaque Portal Popover Menu with Smart Viewport Flipping */}
       {popoverState && createPortal(
         <div
           className="portal-conf-popover"
@@ -616,7 +629,7 @@ export default function SessionSummary({
         .conf-ok .conf-dot { background: #60a5fa; }
         .conf-shaky .conf-dot { background: #f59e0b; }
 
-        /* Theme-Aware Portal Popover Menu rendered directly onto document.body */
+        /* Theme-Aware Fully Opaque Portal Popover Menu */
         .portal-conf-popover {
           position: fixed !important;
           z-index: 999999 !important;
@@ -625,9 +638,12 @@ export default function SessionSummary({
           gap: 0.35rem;
           padding: 0.65rem;
           border-radius: var(--radius-md);
-          background: var(--bg-card);
+          background: var(--bg-secondary) !important;
+          opacity: 1 !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
           border: 1px solid var(--border-subtle);
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
           min-width: 130px;
           animation: fadeIn 0.12s ease;
           color: var(--text-primary);

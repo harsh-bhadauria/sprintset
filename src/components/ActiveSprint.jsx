@@ -332,39 +332,39 @@ export default function ActiveSprint({
           </div>
         </div>
 
-        {/* Reverted Divider Position: Close to Timer */}
-        <hr className="timer-question-divider" />
-
-        {/* Centered Question Body & Per-Question Stats */}
+        {/* Centered Question Body with Dedicated Divider+Title Container */}
         {currentQuestion ? (
           <div className="unified-body">
-            <h2 className="unified-question-title">{currentQuestion.name}</h2>
+            <div className="divider-question-wrapper">
+              <hr className="timer-question-divider" />
+              <h2 className="unified-question-title">{currentQuestion.name}</h2>
+              
+              {/* UNIFIED Per-Question Stats Row: Link (Neutral) • Worth • Attempts */}
+              <div className="per-question-meta-row">
+                <a
+                  href={getQuestionLink(currentQuestion)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="per-q-pill link-per-q-neutral"
+                  title={currentQuestion.link ? 'Open Problem Page' : 'Search Problem on Google'}
+                >
+                  <ExternalLink size={14} className="text-muted" />
+                  <span className="text-secondary font-semibold">Link</span>
+                </a>
 
-            {/* UNIFIED Per-Question Stats Row: Link (Neutral) • Worth • Attempts */}
-            <div className="per-question-meta-row">
-              <a
-                href={getQuestionLink(currentQuestion)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="per-q-pill link-per-q-neutral"
-                title={currentQuestion.link ? 'Open Problem Page' : 'Search Problem on Google'}
-              >
-                <ExternalLink size={14} className="text-muted" />
-                <span className="text-secondary font-semibold">Link</span>
-              </a>
+                <span className="dot-sep">•</span>
 
-              <span className="dot-sep">•</span>
+                <div className="per-q-pill pts-per-q">
+                  <Zap size={14} className="text-amber" />
+                  <span>Worth <strong className="text-gold">+{questionValue} pts</strong></span>
+                </div>
 
-              <div className="per-q-pill pts-per-q">
-                <Zap size={14} className="text-amber" />
-                <span>Worth <strong className="text-gold">+{questionValue} pts</strong></span>
-              </div>
+                <span className="dot-sep">•</span>
 
-              <span className="dot-sep">•</span>
-
-              <div className="per-q-pill attempts-per-q">
-                <RotateCcw size={14} className="text-muted" />
-                <span>Attempts: <strong className={`text-primary ${attemptsAnimTrigger ? 'counter-tween-pop' : ''}`}>{attempts + 1}</strong></span>
+                <div className="per-q-pill attempts-per-q">
+                  <RotateCcw size={14} className="text-muted" />
+                  <span>Attempts: <strong className={`text-primary ${attemptsAnimTrigger ? 'counter-tween-pop' : ''}`}>{attempts + 1}</strong></span>
+                </div>
               </div>
             </div>
 
@@ -662,24 +662,31 @@ export default function ActiveSprint({
           50%, 100% { opacity: 0.2; }
         }
 
-        /* Reverted Divider Position: Directly below timer */
-        .timer-question-divider {
-          width: 100%;
-          border: none;
-          border-top: 1px solid var(--border-subtle);
-          margin: 0.15rem 0 0 0;
-        }
-
-        /* Question Body: Question Name moved UP toward divider via negative margin-top */
         .unified-body {
           display: flex;
           flex-direction: column;
           align-items: center;
           text-align: center;
-          gap: 0.85rem;
+          gap: 1.25rem;
           padding-top: 0;
           margin-top: 0;
           width: 100%;
+        }
+
+        /* Dedicated Divider+Question Wrapper with Direct Control Over Spacing Gap */
+        .divider-question-wrapper {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.35rem; /* DIRECT GAP between divider line, question title, and meta row! */
+        }
+
+        .timer-question-divider {
+          width: 100%;
+          border: none;
+          border-top: 1px solid var(--border-subtle);
+          margin: 0;
         }
 
         .unified-question-title {
@@ -688,8 +695,7 @@ export default function ActiveSprint({
           font-weight: 800;
           color: var(--text-primary);
           line-height: 1.15;
-          margin-top: -0.45rem;
-          margin-bottom: 0;
+          margin: 0;
           padding: 0;
           max-width: 900px;
         }
@@ -704,6 +710,7 @@ export default function ActiveSprint({
           padding: 0.4rem 1.25rem;
           border-radius: var(--radius-full);
           font-size: 0.88rem;
+          margin-top: 0.15rem;
         }
 
         .per-q-pill {
