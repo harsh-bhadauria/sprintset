@@ -175,7 +175,7 @@ export default function SessionSummary({
         </div>
       </div>
 
-      {/* Action Navigation Buttons (Positioned directly below KPI cards, above Breakdown table) */}
+      {/* Action Navigation Buttons (Horizontally Centered below KPI cards, above Breakdown table) */}
       <div className="summary-actions-top">
         <button className="btn btn-secondary" onClick={onGoHome}>
           <Home size={16} />
@@ -438,11 +438,11 @@ export default function SessionSummary({
           color: var(--text-muted);
         }
 
-        /* Repositioned Actions Row above breakdown table */
+        /* Horizontally Centered Actions Row */
         .summary-actions-top {
           display: flex;
           align-items: center;
-          justify-content: flex-end;
+          justify-content: center;
           gap: 0.85rem;
         }
 

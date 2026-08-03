@@ -325,14 +325,14 @@ export default function ActiveSprint({
           </div>
         </div>
 
-        {/* Massive Focal Countdown Timer with Discrete Sudden Blink when Paused */}
+        {/* Massive Countdown Timer (7.25rem) with Discrete Sudden Blink */}
         <div className="ringless-timer-centered">
           <div className={`time-display-massive-focal ${isPaused ? 'timer-paused-blink' : ''}`}>
             {formatTime(timeLeftSec)}
           </div>
         </div>
 
-        {/* Centered Question Body & Per-Question Stats (tighter top proximity to timer + restored divider line) */}
+        {/* Centered Question Body & Per-Question Stats (tighter top proximity to timer) */}
         {currentQuestion ? (
           <div className="unified-body">
             <h2 className="unified-question-title">{currentQuestion.name}</h2>
@@ -464,7 +464,7 @@ export default function ActiveSprint({
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          gap: 1.5rem;
+          gap: 1.75rem;
           position: relative;
           transition: transform 0.35s ease, opacity 0.35s ease;
         }
@@ -629,14 +629,14 @@ export default function ActiveSprint({
           border-color: #f59e0b;
         }
 
-        /* Massive Countdown Timer (7.25rem) with Discrete Sudden Blink */
+        /* Massive Countdown Timer (7.25rem) with Reduced Bottom Margin for Proximity */
         .ringless-timer-centered {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           padding: 0;
-          margin-bottom: 0.15rem;
+          margin-bottom: 0;
         }
 
         .time-display-massive-focal {
@@ -659,7 +659,7 @@ export default function ActiveSprint({
           50%, 100% { opacity: 0.2; }
         }
 
-        /* Question Body with Restored Top Divider Line & Visual Proximity to Timer */
+        /* Question Body with Reduced Top Padding for Closer Visual Proximity to Timer */
         .unified-body {
           display: flex;
           flex-direction: column;
@@ -667,7 +667,7 @@ export default function ActiveSprint({
           text-align: center;
           gap: 1.25rem;
           border-top: 1px solid var(--border-subtle);
-          padding-top: 1.5rem;
+          padding-top: 0.75rem;
           width: 100%;
         }
 
