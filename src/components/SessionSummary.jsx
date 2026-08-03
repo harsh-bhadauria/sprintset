@@ -56,6 +56,9 @@ export default function SessionSummary({
   // Fixed floating popover state: { qId, top, left }
   const [popoverState, setPopoverState] = useState(null);
 
+  // Local overrides for instant UI updates
+  const [localConfOverrides, setLocalConfOverrides] = useState({});
+
   const localResults = results;
   const totalTarget = totalQuota || localResults.length;
 
@@ -129,28 +132,40 @@ export default function SessionSummary({
   useEffect(() => {
     const handleOutsideClick = () => setPopoverState(null);
     if (popoverState) {
-      window.addEventListener('click', handleOutsideClick);
-      return () => window.removeEventListener('click', handleOutsideClick);
+      const timer = setTimeout(() => {
+        window.addEventListener('click', handleOutsideClick);
+      }, 10);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('click', handleOutsideClick);
+      };
     }
   }, [popoverState]);
 
   const handleChipClick = (e, qId) => {
+    e.preventDefault();
     e.stopPropagation();
+    
     if (popoverState && popoverState.qId === qId) {
       setPopoverState(null);
     } else {
       const rect = e.currentTarget.getBoundingClientRect();
       setPopoverState({
         qId,
-        top: rect.bottom + 4,
-        left: Math.max(10, rect.left)
+        top: Math.round(rect.bottom + 6),
+        left: Math.round(rect.left)
       });
     }
   };
 
   const handleSelectOption = (confidence) => {
     if (popoverState && popoverState.qId) {
-      onUpdateSessionConfidence(sessionId, popoverState.qId, confidence);
+      const targetQId = popoverState.qId;
+      setLocalConfOverrides(prev => ({
+        ...prev,
+        [targetQId]: confidence
+      }));
+      onUpdateSessionConfidence(sessionId, targetQId, confidence);
     }
     setPopoverState(null);
   };
@@ -236,7 +251,7 @@ export default function SessionSummary({
             <tbody>
               {localResults.length > 0 ? (
                 localResults.map((r, idx) => {
-                  const displayConfidence = r.confidence || inferConfidence(r, settings);
+                  const displayConfidence = localConfOverrides[r.questionId] || r.confidence || inferConfidence(r, settings);
 
                   return (
                     <tr key={idx} className={r.status === 'done' ? 'row-done' : 'row-gave-up'}>
@@ -310,15 +325,13 @@ export default function SessionSummary({
         </div>
       </div>
 
-      {/* Floating Fixed Popover Menu positioned over viewport */}
+      {/* Floating Fixed Viewport Popover Menu Anchored Directly to Clicked Chip */}
       {popoverState && (
         <div
           className="fixed-conf-popover glass-card"
           style={{
-            position: 'fixed',
             top: `${popoverState.top}px`,
-            left: `${popoverState.left}px`,
-            zIndex: 99999
+            left: `${popoverState.left}px`
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -599,8 +612,14 @@ export default function SessionSummary({
         .conf-ok .conf-dot { background: #60a5fa; }
         .conf-shaky .conf-dot { background: #f59e0b; }
 
-        /* Floating Viewport Popover Menu */
+        /* Floating Viewport Popover Menu Anchored to Chip */
         .fixed-conf-popover {
+          position: fixed !important;
+          z-index: 999999 !important;
+          bottom: auto !important;
+          right: auto !important;
+          margin: 0 !important;
+          transform: none !important;
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
@@ -608,9 +627,9 @@ export default function SessionSummary({
           border-radius: var(--radius-md);
           background: var(--bg-secondary);
           border: 1px solid var(--border-subtle);
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
           min-width: 120px;
-          animation: fadeIn 0.15s ease;
+          animation: fadeIn 0.12s ease;
         }
 
         .popover-header-title {

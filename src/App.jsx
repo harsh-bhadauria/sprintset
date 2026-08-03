@@ -153,7 +153,7 @@ export default function App() {
   const handleUpdateSessionConfidence = (sessionId, questionId, confidence) => {
     setAppState(prev => {
       const updatedSessions = prev.sessions.map(s => {
-        if (s.id === sessionId) {
+        if (s.id === sessionId || (!sessionId && s.id === prev.sessions[prev.sessions.length - 1]?.id)) {
           const updatedResults = (s.results || []).map(r => {
             if (r.questionId === questionId) {
               return { ...r, confidence };
@@ -178,6 +178,18 @@ export default function App() {
         questionStates: updatedQuestionStates,
         sessions: updatedSessions
       };
+    });
+
+    // Update active completedSession if currently displayed
+    setCompletedSession(prev => {
+      if (!prev) return prev;
+      const updatedResults = (prev.results || []).map(r => {
+        if (r.questionId === questionId) {
+          return { ...r, confidence };
+        }
+        return r;
+      });
+      return { ...prev, results: updatedResults };
     });
   };
 
