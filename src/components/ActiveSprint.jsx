@@ -656,7 +656,7 @@ export default function ActiveSprint({
         .time-display-massive-focal {
           font-family: var(--font-mono);
           font-weight: 800;
-          font-size: 7.25rem;
+          font-size: 8rem;
           color: var(--text-primary);
           line-height: 1;
           letter-spacing: -0.05em;
@@ -692,7 +692,7 @@ export default function ActiveSprint({
 
         .unified-question-title {
           font-family: var(--font-heading);
-          font-size: 2.5rem;
+          font-size: 2.75rem;
           font-weight: 800;
           color: var(--text-primary);
           line-height: 1.15;
@@ -831,6 +831,31 @@ export default function ActiveSprint({
           justify-content: flex-end;
           gap: 0.75rem;
           margin-top: 0.5rem;
+        }
+        /* Responsive scaling for narrower viewports */
+        @media (max-width: 768px) {
+          .time-display-massive-focal {
+            font-size: 5rem;
+          }
+          .unified-question-title {
+            font-size: 2rem;
+          }
+          .unified-sprint-card {
+            padding: 1.5rem 1.25rem 1.5rem 1.25rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .time-display-massive-focal {
+            font-size: 3.5rem;
+          }
+          .unified-question-title {
+            font-size: 1.5rem;
+          }
+          .per-question-meta-row {
+            flex-wrap: wrap;
+            justify-content: center;
+          }
         }
       `}</style>
     </div>
