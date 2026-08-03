@@ -301,11 +301,11 @@ export default function SessionSummary({
 
                       {/* Attempts */}
                       <td className="font-mono text-center">
-                        <span className="attempts-count">{(r.attempts || 0) + 1}</span>
+                        <span className="attempts-count">{r.status === 'gave_up' ? '-' : (r.attempts || 0) + 1}</span>
                       </td>
 
                       {/* Time Spent */}
-                      <td className="font-mono text-muted">{r.timeSec ? `${r.timeSec}s` : '-'}</td>
+                      <td className="font-mono text-muted">{r.timeSec ? formatHoursMinSec(r.timeSec) : '-'}</td>
 
                       {/* Confidence Selector Cell */}
                       <td>
