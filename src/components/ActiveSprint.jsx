@@ -455,7 +455,6 @@ export default function ActiveSprint({
         .active-sprint-container {
           max-width: 1100px;
           margin: 1rem auto;
-          min-height: calc(100vh - 140px);
           display: flex;
           flex-direction: column;
           position: relative;
@@ -463,11 +462,11 @@ export default function ActiveSprint({
 
         .unified-sprint-card {
           flex: 1;
-          padding: 2.5rem 2.25rem 2rem 2.25rem;
+          padding: 2.5rem 2.25rem 3rem 2.25rem;
           display: flex;
           flex-direction: column;
-          justify-content: center; /* Vertically center the entire content block */
-          gap: 1.25rem; /* Explicit predictable gap between sections */
+          justify-content: flex-start;
+          gap: 1.5rem;
           position: relative;
           transition: transform 0.35s ease, opacity 0.35s ease;
         }
