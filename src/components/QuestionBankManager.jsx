@@ -36,7 +36,7 @@ export const getQuestionLink = (q) => {
  * Extract up to maxLen recent outcomes for a question from sessions and questionState.
  * Color-code mapping: solid (green), ok (blue), shaky (amber), gaveUp (red).
  */
-export const getRecentQuestionOutcomes = (questionId, sessions = [], questionState = null, maxLen = 5) => {
+export const getRecentQuestionOutcomes = (questionId, sessions = [], questionState = null, maxLen = 3) => {
   const outcomes = [];
 
   if (Array.isArray(sessions) && sessions.length > 0) {
@@ -1010,9 +1010,9 @@ export default function QuestionBankManager({
                           </td>
                         ) : (
                           <td className="col-history">
-                            {/* Dot-based Recent Outcomes Display with hollow outline placeholder dots */}
+                            {/* Dot-based Recent Outcomes Display with 3 hollow outline placeholder dots */}
                             {(() => {
-                              const maxDots = 5;
+                              const maxDots = 3;
                               const recentOutcomes = getRecentQuestionOutcomes(q.id, sessions, st, maxDots);
                               const emptyCount = Math.max(0, maxDots - recentOutcomes.length);
 
@@ -1849,8 +1849,8 @@ export default function QuestionBankManager({
         }
 
         .history-dot.dot-empty {
-          background: transparent;
-          border: 1.5px solid rgba(255, 255, 255, 0.22);
+          background: rgba(148, 163, 184, 0.15);
+          border: 1.5px solid rgba(148, 163, 184, 0.5);
           box-shadow: none;
         }
 
