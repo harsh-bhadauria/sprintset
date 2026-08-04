@@ -124,7 +124,7 @@ export default function SettingsView({
   const PALETTES = [
     { id: 'sunset',        name: 'Sunset Ember',  primary: '#f97316', secondary: '#ea580c' },
     { id: 'emerald',       name: 'Cyber Emerald', primary: '#10b981', secondary: '#059669' },
-    { id: 'violet',        name: 'Deep Violet',   primary: '#8b5cf6', secondary: '#7c3aed' },
+    { id: 'violet',        name: 'Cosmic Purple', primary: '#8b5cf6', secondary: '#7c3aed' },
     { id: 'electric-blue', name: 'Electric Blue', primary: '#0ea5e9', secondary: '#0284c7' },
     { id: 'rose',          name: 'Neon Rose',     primary: '#f43f5e', secondary: '#e11d48' }
   ];
