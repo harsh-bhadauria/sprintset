@@ -159,6 +159,9 @@ export default function QuestionBankManager({
   // Navigation State: null (Sheets grid) | 'ALL' (Flat view) | '<sheetName>'
   const [selectedSheetView, setSelectedSheetView] = useState(null);
 
+  // Toggle state for table Edit Mode (swaps Column 4 between History/Sheets and Edit/Delete Actions)
+  const [isEditMode, setIsEditMode] = useState(false);
+
   // Custom empty sheets list stored in localStorage
   const [customSheets, setCustomSheets] = useState(() => {
     try {
@@ -599,6 +602,7 @@ export default function QuestionBankManager({
 
   const handleBackToSheets = () => {
     setSelectedSheetView(null);
+    setIsEditMode(false);
     setSearchTerm('');
     setSelectedTopic('ALL');
     setSelectedDiff('ALL');
@@ -894,7 +898,7 @@ export default function QuestionBankManager({
             </div>
           </div>
 
-          {/* Filter Controls with vertical margin space */}
+          {/* Filter Controls with vertical margin space and Edit Mode toggle */}
           <div className="bank-controls">
             <div className="search-box">
               <Search size={18} className="search-icon" />
@@ -939,10 +943,21 @@ export default function QuestionBankManager({
                   <option value="Hard">Hard</option>
                 </select>
               </div>
+
+              {/* Edit Mode Toggle Button */}
+              <button
+                type="button"
+                className={`btn-edit-mode-toggle ${isEditMode ? 'edit-mode-active' : ''}`}
+                onClick={() => setIsEditMode(!isEditMode)}
+                title={isEditMode ? "Exit Edit Mode" : "Enable Edit Mode to edit or delete questions"}
+              >
+                <Edit2 size={14} />
+                <span>{isEditMode ? 'Done Editing' : 'Edit Mode'}</span>
+              </button>
             </div>
           </div>
 
-          {/* Question Table (Actions column removed, floating overlay on hover) */}
+          {/* Question Table (Edit Mode swaps Column 4 content cleanly) */}
           <div className="table-wrapper">
             <table className="bank-table">
               <thead>
@@ -951,7 +966,9 @@ export default function QuestionBankManager({
                   <th className="col-topic">Topic</th>
                   <th className="col-diff">Difficulty</th>
                   
-                  {selectedSheetView === 'ALL' ? (
+                  {isEditMode ? (
+                    <th className="col-history text-center">Actions</th>
+                  ) : selectedSheetView === 'ALL' ? (
                     <th className="col-sheet">Sheets</th>
                   ) : (
                     <th className="col-history">History</th>
@@ -988,8 +1005,27 @@ export default function QuestionBankManager({
                           </span>
                         </td>
 
-                        {/* Conditional Column rendering */}
-                        {selectedSheetView === 'ALL' ? (
+                        {/* Column 4: Swaps between Edit/Delete actions in Edit Mode, Sheets tag in ALL view, or History dots */}
+                        {isEditMode ? (
+                          <td className="col-history text-center">
+                            <div className="edit-mode-actions">
+                              <button
+                                className="icon-action-btn"
+                                onClick={() => handleOpenEdit(q)}
+                                title="Edit Question"
+                              >
+                                <Edit2 size={15} />
+                              </button>
+                              <button
+                                className="icon-action-btn text-danger"
+                                onClick={() => handleDeleteQuestion(q.id)}
+                                title="Delete Question"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        ) : selectedSheetView === 'ALL' ? (
                           <td className="col-sheet">
                             <div className="sheets-tags-wrapper">
                               {sheetsList.map(sheetTag => (
@@ -1040,24 +1076,6 @@ export default function QuestionBankManager({
                             })()}
                           </td>
                         )}
-
-                        {/* Floating Row Actions Overlay (appears right-aligned on hover) */}
-                        <div className="row-actions-overlay">
-                          <button
-                            className="icon-action-btn"
-                            onClick={() => handleOpenEdit(q)}
-                            title="Edit Question"
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button
-                            className="icon-action-btn text-danger"
-                            onClick={() => handleDeleteQuestion(q.id)}
-                            title="Delete Question"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
                       </tr>
                     );
                   })
@@ -1713,7 +1731,9 @@ export default function QuestionBankManager({
 
         .filters-row {
           display: flex;
+          align-items: center;
           gap: 0.75rem;
+          flex-wrap: wrap;
         }
 
         .select-wrapper {
@@ -1740,6 +1760,36 @@ export default function QuestionBankManager({
           color: var(--text-primary);
         }
 
+        /* Edit Mode Toggle Button */
+        .btn-edit-mode-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.4rem 0.85rem;
+          border-radius: var(--radius-md);
+          background: var(--bg-input);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-secondary);
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+        }
+
+        .btn-edit-mode-toggle:hover {
+          background: var(--bg-card-hover);
+          color: var(--text-primary);
+          border-color: rgba(249, 115, 22, 0.4);
+        }
+
+        .btn-edit-mode-toggle.edit-mode-active {
+          background: rgba(249, 115, 22, 0.15);
+          color: var(--amber-main);
+          border-color: rgba(249, 115, 22, 0.4);
+          font-weight: 700;
+        }
+
         /* Single-Line Row Table Styling */
         .table-wrapper {
           overflow-x: auto;
@@ -1753,10 +1803,6 @@ export default function QuestionBankManager({
           font-size: 0.88rem;
           background: var(--bg-input);
           table-layout: fixed;
-        }
-
-        .bank-table tbody tr {
-          position: relative;
         }
 
         .bank-table th, .bank-table td {
@@ -1883,31 +1929,12 @@ export default function QuestionBankManager({
           box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
         }
 
-        /* Floating Row Actions Overlay (Hover-revealed over right edge of row) */
-        .row-actions-overlay {
-          position: absolute;
-          right: 0.75rem;
-          top: 50%;
-          transform: translateY(-50%);
+        /* Explicit Edit Mode Row Actions */
+        .edit-mode-actions {
           display: flex;
           align-items: center;
-          gap: 0.25rem;
-          padding: 0.2rem 0.35rem;
-          border-radius: var(--radius-sm);
-          background: var(--bg-secondary);
-          border: 1px solid var(--border-subtle);
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-          opacity: 0;
-          visibility: hidden;
-          pointer-events: none;
-          transition: opacity 0.15s ease, visibility 0.15s ease;
-          z-index: 10;
-        }
-
-        .bank-table tbody tr:hover .row-actions-overlay {
-          opacity: 1;
-          visibility: visible;
-          pointer-events: auto;
+          justify-content: center;
+          gap: 0.5rem;
         }
 
         .icon-action-btn {
@@ -1915,10 +1942,15 @@ export default function QuestionBankManager({
           color: var(--text-muted);
           padding: 0.35rem;
           border-radius: var(--radius-sm);
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
         }
 
         .icon-action-btn:hover {
-          background: var(--bg-input);
+          background: var(--bg-card);
           color: var(--text-primary);
         }
 
