@@ -36,7 +36,7 @@ export const getQuestionLink = (q) => {
  * Extract up to maxLen recent outcomes for a question from sessions and questionState.
  * Color-code mapping: solid (green), ok (blue), shaky (amber), gaveUp (red).
  */
-export const getRecentQuestionOutcomes = (questionId, sessions = [], questionState = null, maxLen = 3) => {
+export const getRecentQuestionOutcomes = (questionId, sessions = [], questionState = null, maxLen = 5) => {
   const outcomes = [];
 
   if (Array.isArray(sessions) && sessions.length > 0) {
@@ -1010,9 +1010,9 @@ export default function QuestionBankManager({
                           </td>
                         ) : (
                           <td className="col-history">
-                            {/* Dot-based Recent Outcomes Display with 3 hollow outline placeholder dots */}
+                            {/* Dot-based Recent Outcomes Display with 5 hollow outline placeholder dots */}
                             {(() => {
-                              const maxDots = 3;
+                              const maxDots = 5;
                               const recentOutcomes = getRecentQuestionOutcomes(q.id, sessions, st, maxDots);
                               const emptyCount = Math.max(0, maxDots - recentOutcomes.length);
 
@@ -1781,7 +1781,8 @@ export default function QuestionBankManager({
         .col-topic { width: 24%; }
         .col-diff { width: 14%; }
         .col-sheet { width: 18%; }
-        .col-history { width: 18%; }
+        .col-history { width: 18%; text-align: center; }
+        .bank-table th.col-history, .bank-table td.col-history { text-align: center; }
 
         .sheets-tags-wrapper {
           display: flex;
@@ -1832,15 +1833,22 @@ export default function QuestionBankManager({
         .history-dots-row {
           display: inline-flex;
           align-items: center;
-          gap: 0.35rem;
+          justify-content: center;
+          gap: 0.4rem;
           cursor: help;
           padding: 0.2rem 0;
+          width: 100%;
         }
 
         .history-dot {
           width: 8px;
           height: 8px;
+          min-width: 8px;
+          min-height: 8px;
+          aspect-ratio: 1 / 1;
           border-radius: 50%;
+          box-sizing: border-box;
+          flex-shrink: 0;
           transition: transform 0.15s ease, opacity 0.15s ease;
           display: inline-block;
         }
