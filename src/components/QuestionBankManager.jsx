@@ -942,7 +942,7 @@ export default function QuestionBankManager({
             </div>
           </div>
 
-          {/* Question Table */}
+          {/* Question Table (Actions column removed, floating overlay on hover) */}
           <div className="table-wrapper">
             <table className="bank-table">
               <thead>
@@ -956,8 +956,6 @@ export default function QuestionBankManager({
                   ) : (
                     <th className="col-history">History State</th>
                   )}
-
-                  <th className="col-actions">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1012,7 +1010,7 @@ export default function QuestionBankManager({
                           </td>
                         ) : (
                           <td className="col-history">
-                            {/* Dot-based Recent Outcomes Display */}
+                            {/* Dot-based Recent Outcomes Display with hollow outline placeholder dots */}
                             {(() => {
                               const maxDots = 5;
                               const recentOutcomes = getRecentQuestionOutcomes(q.id, sessions, st, maxDots);
@@ -1034,7 +1032,7 @@ export default function QuestionBankManager({
                                     <span
                                       key={dIdx}
                                       className={`history-dot dot-${dot.type}`}
-                                      title={dot.type !== 'empty' ? `${dot.label}${dot.date ? ` (${dot.date})` : ''}` : 'Not attempted'}
+                                      title={dot.type !== 'empty' ? `${dot.label}${dot.date ? ` (${dot.date})` : ''}` : 'Never attempted'}
                                     />
                                   ))}
                                 </div>
@@ -1043,31 +1041,29 @@ export default function QuestionBankManager({
                           </td>
                         )}
 
-                        <td className="col-actions">
-                          {/* Hover-revealed Edit / Delete Icon Buttons */}
-                          <div className="row-actions">
-                            <button
-                              className="icon-action-btn"
-                              onClick={() => handleOpenEdit(q)}
-                              title="Edit Question"
-                            >
-                              <Edit2 size={15} />
-                            </button>
-                            <button
-                              className="icon-action-btn text-danger"
-                              onClick={() => handleDeleteQuestion(q.id)}
-                              title="Delete Question"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </td>
+                        {/* Floating Row Actions Overlay (appears right-aligned on hover) */}
+                        <div className="row-actions-overlay">
+                          <button
+                            className="icon-action-btn"
+                            onClick={() => handleOpenEdit(q)}
+                            title="Edit Question"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            className="icon-action-btn text-danger"
+                            onClick={() => handleDeleteQuestion(q.id)}
+                            title="Delete Question"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan="5" className="text-center py-6 text-muted">
+                    <td colSpan="4" className="text-center py-6 text-muted">
                       No questions match your filter criteria in this view.
                     </td>
                   </tr>
@@ -1758,6 +1754,10 @@ export default function QuestionBankManager({
           table-layout: fixed;
         }
 
+        .bank-table tbody tr {
+          position: relative;
+        }
+
         .bank-table th, .bank-table td {
           padding: 0.75rem 0.9rem;
           text-align: left;
@@ -1775,13 +1775,12 @@ export default function QuestionBankManager({
           font-weight: 700;
         }
 
-        /* Fixed Column Width Allocations */
-        .col-name { width: 36%; }
-        .col-topic { width: 22%; }
+        /* Reclaimed 4-Column Width Allocations */
+        .col-name { width: 44%; }
+        .col-topic { width: 24%; }
         .col-diff { width: 14%; }
         .col-sheet { width: 18%; }
         .col-history { width: 18%; }
-        .col-actions { width: 10%; text-align: right; }
 
         .sheets-tags-wrapper {
           display: flex;
@@ -1828,7 +1827,7 @@ export default function QuestionBankManager({
           background: rgba(249, 115, 22, 0.1);
         }
 
-        /* Dot-based History Outcome Display */
+        /* Dot-based History Outcome Display with hollow outline placeholder dots */
         .history-dots-row {
           display: inline-flex;
           align-items: center;
@@ -1850,8 +1849,9 @@ export default function QuestionBankManager({
         }
 
         .history-dot.dot-empty {
-          background: rgba(255, 255, 255, 0.18);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: transparent;
+          border: 1.5px solid rgba(255, 255, 255, 0.22);
+          box-shadow: none;
         }
 
         .history-dot.dot-solid {
@@ -1874,20 +1874,31 @@ export default function QuestionBankManager({
           box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
         }
 
-        /* Hover-Revealed Row Actions */
-        .row-actions {
+        /* Floating Row Actions Overlay (Hover-revealed over right edge of row) */
+        .row-actions-overlay {
+          position: absolute;
+          right: 0.75rem;
+          top: 50%;
+          transform: translateY(-50%);
           display: flex;
           align-items: center;
-          justify-content: flex-end;
-          gap: 0.35rem;
+          gap: 0.25rem;
+          padding: 0.2rem 0.35rem;
+          border-radius: var(--radius-sm);
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-subtle);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
           opacity: 0;
           visibility: hidden;
-          transition: opacity 0.18s ease, visibility 0.18s ease;
+          pointer-events: none;
+          transition: opacity 0.15s ease, visibility 0.15s ease;
+          z-index: 10;
         }
 
-        .bank-table tbody tr:hover .row-actions {
+        .bank-table tbody tr:hover .row-actions-overlay {
           opacity: 1;
           visibility: visible;
+          pointer-events: auto;
         }
 
         .icon-action-btn {
