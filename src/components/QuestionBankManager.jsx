@@ -1669,6 +1669,7 @@ export default function QuestionBankManager({
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
+          margin-top: 1.25rem;
           margin-bottom: 1.25rem;
         }
 
