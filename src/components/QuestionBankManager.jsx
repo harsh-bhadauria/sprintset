@@ -954,7 +954,7 @@ export default function QuestionBankManager({
                   {selectedSheetView === 'ALL' ? (
                     <th className="col-sheet">Sheets</th>
                   ) : (
-                    <th className="col-history">History State</th>
+                    <th className="col-history">History</th>
                   )}
                 </tr>
               </thead>
