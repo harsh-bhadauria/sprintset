@@ -709,6 +709,7 @@ export default function SessionSummary({
           align-items: center;
           gap: 0.4rem;
           text-decoration: none;
+          color: inherit;
           transition: opacity 0.15s ease;
         }
 
