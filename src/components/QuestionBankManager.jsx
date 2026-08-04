@@ -33,6 +33,73 @@ export const getQuestionLink = (q) => {
 };
 
 /**
+ * Extract up to maxLen recent outcomes for a question from sessions and questionState.
+ * Color-code mapping: solid (green), ok (blue), shaky (amber), gaveUp (red).
+ */
+export const getRecentQuestionOutcomes = (questionId, sessions = [], questionState = null, maxLen = 5) => {
+  const outcomes = [];
+
+  if (Array.isArray(sessions) && sessions.length > 0) {
+    sessions.forEach(sess => {
+      if (Array.isArray(sess.results)) {
+        sess.results.forEach(res => {
+          if (res.questionId === questionId) {
+            const dateStr = (sess.completedAt || sess.timestamp)
+              ? new Date(sess.completedAt || sess.timestamp).toLocaleDateString()
+              : '';
+            
+            let type = 'ok';
+            let label = 'OK';
+
+            if (res.confidence === 'solid' || res.confidence === 'tooEasy') {
+              type = 'solid';
+              label = 'Solid';
+            } else if (res.confidence === 'shaky' || res.status === 'skipped') {
+              type = 'shaky';
+              label = 'Shaky';
+            } else if (res.status === 'gaveUp' || res.confidence === 'wrong') {
+              type = 'gaveUp';
+              label = 'Gave Up';
+            } else if (res.confidence === 'ok' || res.status === 'done') {
+              type = 'ok';
+              label = 'OK';
+            }
+
+            outcomes.push({ type, label, date: dateStr });
+          }
+        });
+      }
+    });
+  }
+
+  // Fallback to single questionState if sessions results had no records
+  if (outcomes.length === 0 && questionState) {
+    let type = 'ok';
+    let label = 'OK';
+    const dateStr = questionState.lastAttemptedAt ? new Date(questionState.lastAttemptedAt).toLocaleDateString() : '';
+
+    if (questionState.confidence === 'solid' || questionState.confidence === 'tooEasy') {
+      type = 'solid';
+      label = 'Solid';
+    } else if (questionState.confidence === 'shaky' || questionState.status === 'skipped') {
+      type = 'shaky';
+      label = 'Shaky';
+    } else if (questionState.status === 'gaveUp' || questionState.confidence === 'wrong') {
+      type = 'gaveUp';
+      label = 'Gave Up';
+    } else if (questionState.confidence === 'ok') {
+      type = 'ok';
+      label = 'OK';
+    }
+
+    outcomes.push({ type, label, date: dateStr });
+  }
+
+  // Return the last `maxLen` outcomes (most recent on the right)
+  return outcomes.slice(-maxLen);
+};
+
+/**
  * Merge imported question items into existing bank.
  * Case-insensitive match on question name merges target sheet into existing question's sheets array.
  */
@@ -84,6 +151,7 @@ export const mergeImportedQuestions = (existingQuestions, importedItems, targetS
 export default function QuestionBankManager({
   questions,
   questionStates = {},
+  sessions = [],
   onUpdateQuestions,
   onUpdateQuestionStates,
   onResetToDefault
@@ -826,7 +894,7 @@ export default function QuestionBankManager({
             </div>
           </div>
 
-          {/* Filter Controls */}
+          {/* Filter Controls with vertical margin space */}
           <div className="bank-controls">
             <div className="search-box">
               <Search size={18} className="search-icon" />
@@ -944,22 +1012,39 @@ export default function QuestionBankManager({
                           </td>
                         ) : (
                           <td className="col-history">
-                            {st ? (
-                              <div className="history-pill">
-                                <span>Seen: <strong>{st.timesSeen || 0}</strong></span>
-                                {st.confidence && (
-                                  <span className={`conf-chip conf-${st.confidence}`}>
-                                    {st.confidence}
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted text-xs">Never attempted</span>
-                            )}
+                            {/* Dot-based Recent Outcomes Display */}
+                            {(() => {
+                              const maxDots = 5;
+                              const recentOutcomes = getRecentQuestionOutcomes(q.id, sessions, st, maxDots);
+                              const emptyCount = Math.max(0, maxDots - recentOutcomes.length);
+
+                              const dots = [
+                                ...Array(emptyCount).fill({ type: 'empty', label: 'Not attempted', date: '' }),
+                                ...recentOutcomes
+                              ];
+
+                              const tooltipText = recentOutcomes.length > 0
+                                ? `Recent Outcomes (${recentOutcomes.length} attempt${recentOutcomes.length === 1 ? '' : 's'}):\n` +
+                                  recentOutcomes.map((h, idx) => `${idx + 1}. ${h.label}${h.date ? ` (${h.date})` : ''}`).join('\n')
+                                : 'Never attempted';
+
+                              return (
+                                <div className="history-dots-row" title={tooltipText}>
+                                  {dots.map((dot, dIdx) => (
+                                    <span
+                                      key={dIdx}
+                                      className={`history-dot dot-${dot.type}`}
+                                      title={dot.type !== 'empty' ? `${dot.label}${dot.date ? ` (${dot.date})` : ''}` : 'Not attempted'}
+                                    />
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </td>
                         )}
 
                         <td className="col-actions">
+                          {/* Hover-revealed Edit / Delete Icon Buttons */}
                           <div className="row-actions">
                             <button
                               className="icon-action-btn"
@@ -1581,13 +1666,14 @@ export default function QuestionBankManager({
           margin-left: auto;
         }
 
-        /* Controls & Table */
+        /* Controls & Table Spacing */
         .bank-controls {
           display: flex;
           gap: 1rem;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
+          margin-bottom: 1.25rem;
         }
 
         .search-box {
@@ -1742,30 +1828,66 @@ export default function QuestionBankManager({
           background: rgba(249, 115, 22, 0.1);
         }
 
-        .history-pill {
-          display: flex;
+        /* Dot-based History Outcome Display */
+        .history-dots-row {
+          display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
-          font-size: 0.78rem;
+          gap: 0.35rem;
+          cursor: help;
+          padding: 0.2rem 0;
         }
 
-        .conf-chip {
-          padding: 0.1rem 0.4rem;
-          border-radius: var(--radius-sm);
-          font-weight: 700;
-          text-transform: capitalize;
-          font-size: 0.7rem;
+        .history-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          transition: transform 0.15s ease, opacity 0.15s ease;
+          display: inline-block;
         }
 
-        .conf-shaky { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-        .conf-ok { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-        .conf-solid { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .history-dot:hover {
+          transform: scale(1.4);
+        }
 
+        .history-dot.dot-empty {
+          background: rgba(255, 255, 255, 0.18);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-dot.dot-solid {
+          background: #10b981;
+          box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+        }
+
+        .history-dot.dot-ok {
+          background: #3b82f6;
+          box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+        }
+
+        .history-dot.dot-shaky {
+          background: #f59e0b;
+          box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+        }
+
+        .history-dot.dot-gaveUp {
+          background: #ef4444;
+          box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+        }
+
+        /* Hover-Revealed Row Actions */
         .row-actions {
           display: flex;
           align-items: center;
           justify-content: flex-end;
           gap: 0.35rem;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.18s ease, visibility 0.18s ease;
+        }
+
+        .bank-table tbody tr:hover .row-actions {
+          opacity: 1;
+          visibility: visible;
         }
 
         .icon-action-btn {

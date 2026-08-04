@@ -297,6 +297,7 @@ export default function App() {
           <QuestionBankManager
             questions={appState.questions}
             questionStates={appState.questionStates}
+            sessions={appState.sessions}
             onUpdateQuestions={(newQuestions) => setAppState(prev => ({ ...prev, questions: newQuestions }))}
             onUpdateQuestionStates={(newStates) => setAppState(prev => ({ ...prev, questionStates: newStates }))}
             onResetToDefault={() => setAppState(prev => ({ ...prev, questions: DEFAULT_QUESTIONS }))}
