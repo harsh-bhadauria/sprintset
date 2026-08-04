@@ -517,17 +517,6 @@ export default function QuestionBankManager({
 
                 {isGlobalMenuOpen && (
                   <div className="kebab-dropdown-menu">
-                    <label className="menu-item-btn cursor-pointer">
-                      <Upload size={15} />
-                      <span>Import CSV (Global)</span>
-                      <input
-                        type="file"
-                        accept=".csv"
-                        onChange={handleGlobalCSVImport}
-                        style={{ display: 'none' }}
-                      />
-                    </label>
-
                     <button
                       type="button"
                       className="menu-item-btn"
@@ -700,17 +689,6 @@ export default function QuestionBankManager({
                   <div className="kebab-dropdown-menu">
                     {selectedSheetView === 'ALL' ? (
                       <>
-                        <label className="menu-item-btn cursor-pointer">
-                          <Upload size={15} />
-                          <span>Batch Import (Global)</span>
-                          <input
-                            type="file"
-                            accept=".csv"
-                            onChange={handleGlobalCSVImport}
-                            style={{ display: 'none' }}
-                          />
-                        </label>
-
                         <button
                           type="button"
                           className="menu-item-btn"
@@ -734,10 +712,9 @@ export default function QuestionBankManager({
                       </>
                     ) : (
                       <>
-                        {/* Final per-sheet kebab menu in exact requested order */}
                         <label className="menu-item-btn cursor-pointer">
                           <Upload size={15} />
-                          <span>Batch Import (This Sheet)</span>
+                          <span>Batch Import</span>
                           <input
                             type="file"
                             accept=".csv"
@@ -756,7 +733,7 @@ export default function QuestionBankManager({
                           }}
                         >
                           <Download size={15} />
-                          <span>Export Sheet (CSV)</span>
+                          <span>Export Sheet</span>
                         </button>
 
                         <button
@@ -765,7 +742,7 @@ export default function QuestionBankManager({
                           onClick={() => handleOpenFindReplace(selectedSheetView)}
                         >
                           <Replace size={15} />
-                          <span>Find & Replace (This Sheet)</span>
+                          <span>Find & Replace</span>
                         </button>
 
                         <div className="dropdown-divider" />
@@ -776,7 +753,7 @@ export default function QuestionBankManager({
                           onClick={() => handleResetSheetHistory(selectedSheetView)}
                         >
                           <RefreshCw size={15} />
-                          <span>Reset Sheet History</span>
+                          <span>Reset History</span>
                         </button>
 
                         {selectedSheetView !== 'Default' && (
