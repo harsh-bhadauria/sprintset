@@ -21,9 +21,9 @@ export default function SettingsView({
   const currentSessions = sessions.length > 0 ? sessions : (fullState?.sessions || []);
 
   // Saved baseline values
-  const savedPtsEasy = settings.pointsByDifficulty?.Easy || 10;
-  const savedPtsMedium = settings.pointsByDifficulty?.Medium || 20;
-  const savedPtsHard = settings.pointsByDifficulty?.Hard || 30;
+  const savedPtsEasy = settings.pointsByDifficulty?.Easy || 200;
+  const savedPtsMedium = settings.pointsByDifficulty?.Medium || 500;
+  const savedPtsHard = settings.pointsByDifficulty?.Hard || 1000;
 
   const savedWeightEasy = settings.timeWeightsByDifficulty?.Easy || 4;
   const savedWeightMedium = settings.timeWeightsByDifficulty?.Medium || 8;
@@ -55,9 +55,9 @@ export default function SettingsView({
       onSaveSettings({
         ...settings,
         pointsByDifficulty: {
-          Easy: parseInt(ptsEasy, 10) || 10,
-          Medium: parseInt(ptsMedium, 10) || 20,
-          Hard: parseInt(ptsHard, 10) || 30
+          Easy: parseInt(ptsEasy, 10) || 200,
+          Medium: parseInt(ptsMedium, 10) || 500,
+          Hard: parseInt(ptsHard, 10) || 1000
         },
         timeWeightsByDifficulty: {
           Easy: parseInt(weightEasy, 10) || 4,

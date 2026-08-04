@@ -5,9 +5,9 @@ const ACTIVE_SPRINT_KEY = 'sprintset_active_sprint_v1';
 
 export const DEFAULT_SETTINGS = {
   pointsByDifficulty: {
-    Easy: 10,
-    Medium: 20,
-    Hard: 40
+    Easy: 200,
+    Medium: 500,
+    Hard: 1000
   },
   timeWeightsByDifficulty: {
     Easy: 4,
