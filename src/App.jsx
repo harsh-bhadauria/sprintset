@@ -47,24 +47,37 @@ export default function App() {
     saveActiveSprintState(activeSprintState);
   }, [activeSprintState]);
 
+  const [cloudUnclaimedPoints, setCloudUnclaimedPoints] = useState(null);
+
   // Total points earned across lifetime sessions
   const totalLifetimePoints = useMemo(() => {
     return (appState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
   }, [appState.sessions]);
 
   const claimedVetoPoints = appState.claimedVetoPoints || 0;
-  const unclaimedVetoPoints = Math.max(0, totalLifetimePoints - claimedVetoPoints);
+  const localUnclaimedPoints = Math.max(0, totalLifetimePoints - claimedVetoPoints);
+  
+  // Use cloudUnclaimedPoints if available and higher than localUnclaimedPoints
+  const unclaimedVetoPoints = cloudUnclaimedPoints !== null
+    ? Math.max(cloudUnclaimedPoints, localUnclaimedPoints)
+    : localUnclaimedPoints;
+
   const vetoMinutes = Math.floor(unclaimedVetoPoints / 100);
   const syncKey = appState.settings?.syncKey || DEFAULT_SYNC_KEY;
 
-  // Auto-sync Cloud on initial load
+  // Auto-sync Cloud on initial load & key change
   useEffect(() => {
     pullSyncData(syncKey).then(remote => {
-      if (remote && remote.claimedVetoPoints !== undefined && remote.claimedVetoPoints > claimedVetoPoints) {
-        setAppState(prev => ({
-          ...prev,
-          claimedVetoPoints: remote.claimedVetoPoints
-        }));
+      if (remote) {
+        if (remote.unclaimedVetoPoints !== undefined) {
+          setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
+        }
+        if (remote.claimedVetoPoints !== undefined && remote.claimedVetoPoints > claimedVetoPoints) {
+          setAppState(prev => ({
+            ...prev,
+            claimedVetoPoints: remote.claimedVetoPoints
+          }));
+        }
       }
     });
   }, [syncKey]);
@@ -86,6 +99,7 @@ export default function App() {
       ...prev,
       claimedVetoPoints: nextClaimed
     }));
+    setCloudUnclaimedPoints(0);
 
     pushSyncData(syncKey, {
       claimedVetoPoints: nextClaimed,
@@ -95,17 +109,26 @@ export default function App() {
   };
 
   const handleSyncCloud = async () => {
-    await pushSyncData(syncKey, {
-      claimedVetoPoints,
-      totalLifetimePoints,
-      unclaimedVetoPoints
-    });
+    // If local device has unclaimed points, push first
+    if (localUnclaimedPoints > 0) {
+      await pushSyncData(syncKey, {
+        claimedVetoPoints,
+        totalLifetimePoints,
+        unclaimedVetoPoints: localUnclaimedPoints
+      });
+    }
+    // Pull remote latest
     const remote = await pullSyncData(syncKey);
-    if (remote && remote.claimedVetoPoints !== undefined && remote.claimedVetoPoints > claimedVetoPoints) {
-      setAppState(prev => ({
-        ...prev,
-        claimedVetoPoints: remote.claimedVetoPoints
-      }));
+    if (remote) {
+      if (remote.unclaimedVetoPoints !== undefined) {
+        setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
+      }
+      if (remote.claimedVetoPoints !== undefined && remote.claimedVetoPoints > claimedVetoPoints) {
+        setAppState(prev => ({
+          ...prev,
+          claimedVetoPoints: remote.claimedVetoPoints
+        }));
+      }
     }
   };
 

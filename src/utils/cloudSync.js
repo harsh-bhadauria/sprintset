@@ -1,31 +1,27 @@
-const CLOUD_API_BASE = 'https://api.restful-api.dev/objects';
-
 export const DEFAULT_SYNC_KEY = 'PADHLEBSDK';
 
 /**
- * Push current Veto points & sprint state to cloud
+ * Push current Veto points & sprint state to cloud via ntfy.sh
  */
 export async function pushSyncData(syncKey, payload) {
   const key = (syncKey || DEFAULT_SYNC_KEY).trim().toUpperCase();
+  const topic = `sprintset_sync_${key}`;
+  const url = `https://ntfy.sh/${topic}`;
+
   try {
-    const res = await fetch(CLOUD_API_BASE, {
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Title': 'SprintsetSync'
+      },
       body: JSON.stringify({
-        name: `sprintset_sync_${key}`,
-        data: {
-          ...payload,
-          syncKey: key,
-          updatedAt: new Date().toISOString()
-        }
+        ...payload,
+        syncKey: key,
+        updatedAt: new Date().toISOString()
       })
     });
-    if (!res.ok) return false;
-    const json = await res.json();
-    if (json && json.id) {
-      localStorage.setItem(`sprintset_cloud_id_${key}`, json.id);
-    }
-    return true;
+    return res.ok;
   } catch (err) {
     console.error('Cloud Push Sync Error:', err);
     return false;
@@ -33,42 +29,39 @@ export async function pushSyncData(syncKey, payload) {
 }
 
 /**
- * Pull latest Veto points & sprint state from cloud
+ * Pull latest Veto points & sprint state from cloud via ntfy.sh
  */
 export async function pullSyncData(syncKey) {
   const key = (syncKey || DEFAULT_SYNC_KEY).trim().toUpperCase();
-  const savedId = localStorage.getItem(`sprintset_cloud_id_${key}`);
-  
-  if (savedId) {
-    try {
-      const res = await fetch(`${CLOUD_API_BASE}/${savedId}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.data) return json.data;
-      }
-    } catch (e) {
-      // Fallback if savedId expired
-    }
-  }
+  const topic = `sprintset_sync_${key}`;
+  const url = `https://ntfy.sh/${topic}/json?poll=1`;
 
   try {
-    const res = await fetch(CLOUD_API_BASE);
-    if (res.ok) {
-      const list = await res.json();
-      const targetName = `sprintset_sync_${key}`;
-      const matches = (Array.isArray(list) ? list : []).filter(item => item && item.name === targetName);
-      if (matches.length > 0) {
-        const latest = matches[matches.length - 1];
-        if (latest.id) {
-          localStorage.setItem(`sprintset_cloud_id_${key}`, latest.id);
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const text = await res.text();
+    const lines = text.trim().split('\n').filter(Boolean);
+    
+    let latestPayload = null;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const item = JSON.parse(lines[i]);
+        if (item && item.event === 'message' && item.message) {
+          const parsed = JSON.parse(item.message);
+          if (parsed && typeof parsed === 'object') {
+            latestPayload = parsed;
+            break;
+          }
         }
-        return latest.data || null;
+      } catch (e) {
+        // Skip unparseable lines
       }
     }
+    return latestPayload;
   } catch (err) {
     console.error('Cloud Pull Sync Error:', err);
+    return null;
   }
-  return null;
 }
 
 /**
