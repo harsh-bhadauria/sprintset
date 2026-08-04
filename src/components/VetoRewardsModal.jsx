@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Zap, Clock, CheckCircle2, Copy, ExternalLink, RefreshCw, X, Key } from 'lucide-react';
+import { Shield, Zap, Clock, CheckCircle2, Copy, ExternalLink, RefreshCw, X, Key, Eye, EyeOff, Lock } from 'lucide-react';
 import { DEFAULT_SYNC_KEY, generateVetoDeepLink } from '../utils/cloudSync';
 
 export default function VetoRewardsModal({
@@ -13,6 +13,7 @@ export default function VetoRewardsModal({
   onSyncCloud
 }) {
   const [isEditingKey, setIsEditingKey] = useState(false);
+  const [showKey, setShowKey] = useState(false);
   const [keyInput, setKeyInput] = useState(syncKey || DEFAULT_SYNC_KEY);
   const [copiedToast, setCopiedToast] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -39,7 +40,6 @@ export default function VetoRewardsModal({
   };
 
   const handleClaimClick = () => {
-    // Open deep link
     window.location.href = deepLink;
     if (onClaimPoints) onClaimPoints(unclaimedPoints);
   };
@@ -49,6 +49,8 @@ export default function VetoRewardsModal({
     if (onSyncCloud) await onSyncCloud();
     setTimeout(() => setIsSyncing(false), 800);
   };
+
+  const maskString = (str) => '•'.repeat(Math.max(6, str.length));
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
@@ -60,7 +62,10 @@ export default function VetoRewardsModal({
             </div>
             <div>
               <h3>Veto Time Bank Rewards</h3>
-              <p className="text-xs text-muted">Earn screen time by finishing DSA Sprints</p>
+              <p className="text-xs text-muted flex items-center gap-1">
+                <Lock size={11} className="text-emerald" />
+                <span>Private SHA-256 Encrypted Sync</span>
+              </p>
             </div>
           </div>
           <button className="close-btn" onClick={onClose}>
@@ -69,35 +74,47 @@ export default function VetoRewardsModal({
         </div>
 
         <div className="veto-body">
-          {/* Sync Key Pill */}
+          {/* Masked Sync Key Box */}
           <div className="sync-key-box glass-card">
             <div className="sync-key-header">
               <span className="flex items-center gap-1.5 text-xs text-muted">
                 <Key size={13} />
-                <span>Active Sync Key:</span>
+                <span>Private Sync Key:</span>
               </span>
-              {!isEditingKey && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="text-xs text-amber font-semibold hover:underline"
-                  onClick={() => {
-                    setKeyInput(currentKey);
-                    setIsEditingKey(true);
-                  }}
+                  className="text-xs text-muted hover:text-primary flex items-center gap-1"
+                  onClick={() => setShowKey(!showKey)}
+                  title={showKey ? 'Hide Key' : 'Reveal Key'}
                 >
-                  Edit Key
+                  {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
+                  <span>{showKey ? 'Hide' : 'Reveal'}</span>
                 </button>
-              )}
+
+                {!isEditingKey && (
+                  <button
+                    type="button"
+                    className="text-xs text-amber font-semibold hover:underline ml-1"
+                    onClick={() => {
+                      setKeyInput(currentKey);
+                      setIsEditingKey(true);
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
             </div>
 
             {isEditingKey ? (
               <form onSubmit={handleSaveKey} className="sync-key-form">
                 <input
-                  type="text"
+                  type={showKey ? 'text' : 'password'}
                   required
                   value={keyInput}
                   onChange={(e) => setKeyInput(e.target.value.toUpperCase())}
-                  placeholder="e.g. PADHLEBSDK, CYBER, STREAK..."
+                  placeholder="Enter secret key..."
                   className="input-field-full text-center font-mono font-bold uppercase"
                   autoFocus
                 />
@@ -116,7 +133,9 @@ export default function VetoRewardsModal({
               </form>
             ) : (
               <div className="sync-key-display">
-                <span className="key-badge">{currentKey}</span>
+                <span className="key-badge">
+                  {showKey ? currentKey : maskString(currentKey)}
+                </span>
               </div>
             )}
           </div>

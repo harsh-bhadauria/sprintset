@@ -1,11 +1,33 @@
 export const DEFAULT_SYNC_KEY = 'PADHLEBSDK';
 
 /**
- * Push current Veto points & sprint state to cloud via ntfy.sh
+ * SHA-256 hash helper to turn user key into unguessable 24-char channel ID
+ */
+async function getHashedTopic(syncKey) {
+  const key = (syncKey || DEFAULT_SYNC_KEY).trim().toUpperCase();
+  try {
+    const msgUint8 = new TextEncoder().encode(`sprintset_private_v1_${key}`);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return `sprintset_sync_${hex.slice(0, 24)}`;
+  } catch (err) {
+    // Fallback simple hash
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = (hash << 5) - hash + key.charCodeAt(i);
+      hash |= 0;
+    }
+    return `sprintset_sync_priv_${Math.abs(hash)}`;
+  }
+}
+
+/**
+ * Push current Veto points & full app state to cloud
  */
 export async function pushSyncData(syncKey, payload) {
   const key = (syncKey || DEFAULT_SYNC_KEY).trim().toUpperCase();
-  const topic = `sprintset_sync_${key}`;
+  const topic = await getHashedTopic(key);
   const url = `https://ntfy.sh/${topic}`;
 
   try {
@@ -13,11 +35,11 @@ export async function pushSyncData(syncKey, payload) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Title': 'SprintsetSync'
+        'Title': 'SprintsetPrivateSync'
       },
       body: JSON.stringify({
         ...payload,
-        syncKey: key,
+        syncKey: 'REDACTED',
         updatedAt: new Date().toISOString()
       })
     });
@@ -29,11 +51,11 @@ export async function pushSyncData(syncKey, payload) {
 }
 
 /**
- * Pull latest Veto points & sprint state from cloud via ntfy.sh
+ * Pull latest Veto points & full app state from cloud
  */
 export async function pullSyncData(syncKey) {
   const key = (syncKey || DEFAULT_SYNC_KEY).trim().toUpperCase();
-  const topic = `sprintset_sync_${key}`;
+  const topic = await getHashedTopic(key);
   const url = `https://ntfy.sh/${topic}/json?poll=1`;
 
   try {
@@ -54,7 +76,7 @@ export async function pullSyncData(syncKey) {
           }
         }
       } catch (e) {
-        // Skip unparseable lines
+        // Skip
       }
     }
     return latestPayload;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, Shield } from 'lucide-react';
+import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, Shield, Eye, EyeOff, Lock } from 'lucide-react';
 import { exportStateJSON, importStateJSON } from '../utils/storage';
 import { exportToCSV, parseCSV } from '../utils/csvHandler';
 
@@ -241,22 +241,33 @@ export default function SettingsView({
               <h3 className="setting-heading flex items-center gap-2">
                 <Shield size={18} className="text-amber" />
                 <span>Veto Cloud Sync Key</span>
+                <span className="text-xs text-emerald font-semibold flex items-center gap-1">
+                  <Lock size={11} /> SHA-256 Encrypted
+                </span>
               </h3>
-              <p className="setting-subtext">Custom secret key used to sync your Veto time bank between devices</p>
+              <p className="setting-subtext">Secret passphrase used to sync your Veto time bank between devices</p>
             </div>
 
-            <div className="sync-key-settings-input">
+            <div className="sync-key-settings-input flex items-center gap-2">
               <input
-                type="text"
+                type={showSettingsSyncKey ? 'text' : 'password'}
                 value={settings.syncKey || 'PADHLEBSDK'}
                 onChange={(e) => {
                   const val = e.target.value.toUpperCase();
                   onSaveSettings({ ...settings, syncKey: val });
                 }}
                 className="input-field-full text-center font-mono font-bold uppercase"
-                style={{ width: '180px' }}
+                style={{ width: '170px' }}
                 placeholder="PADHLEBSDK"
               />
+              <button
+                type="button"
+                className="btn btn-secondary p-2"
+                onClick={() => setShowSettingsSyncKey(!showSettingsSyncKey)}
+                title={showSettingsSyncKey ? 'Hide Secret Key' : 'Reveal Secret Key'}
+              >
+                {showSettingsSyncKey ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
         </section>
