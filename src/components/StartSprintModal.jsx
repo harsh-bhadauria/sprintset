@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Clock, Filter, Play, CheckSquare, Square, Layers, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateSeed } from '../utils/prng';
 import { PRESET_ICONS } from '../data/presetIcons';
+import { formatTopicName } from './SessionSummary';
 
 export const PRESETS = [
   { id: 'speedy', name: 'Speedy', tag: '5 Easy', quota: { Easy: 5, Medium: 0, Hard: 0 } },
@@ -382,7 +383,7 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
                     onClick={() => toggleTopic(topic)}
                   >
                     {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-                    <span>{topic}</span>
+                    <span>{formatTopicName(topic)}</span>
                   </button>
                 );
               })}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ExternalLink, CheckCircle2, XCircle, SkipForward, PlusCircle, Check } from 'lucide-react';
+import { formatTopicName } from './SessionSummary';
 
 export default function QuestionCard({
   question,
@@ -39,7 +40,7 @@ export default function QuestionCard({
             {question.difficulty}
           </span>
           <span className="badge badge-topic">
-            {question.topic}
+            {formatTopicName(question.topic)}
           </span>
           {question.sheet && (
             <span className="badge-sheet">

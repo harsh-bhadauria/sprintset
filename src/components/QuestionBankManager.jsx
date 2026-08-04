@@ -5,6 +5,7 @@ import {
   ChevronRight, MoreVertical, FolderPlus, RefreshCw, AlertTriangle 
 } from 'lucide-react';
 import { parseCSV, exportToCSV } from '../utils/csvHandler';
+import { formatTopicName } from './SessionSummary';
 
 export const getQuestionSheet = (q) => {
   if (q && q.sheet && String(q.sheet).trim() !== '') {
@@ -665,7 +666,7 @@ export default function QuestionBankManager({
                 >
                   <option value="ALL">All Topics ({allTopics.length})</option>
                   {allTopics.map(t => (
-                    <option key={t} value={t}>{t}</option>
+                    <option key={t} value={t}>{formatTopicName(t)}</option>
                   ))}
                 </select>
               </div>
@@ -722,7 +723,7 @@ export default function QuestionBankManager({
                           </div>
                         </td>
                         <td className="col-topic">
-                          <span className="badge badge-topic" title={q.topic}>{q.topic}</span>
+                          <span className="badge badge-topic" title={q.topic}>{formatTopicName(q.topic)}</span>
                         </td>
                         <td className="col-diff">
                           <span className={`badge badge-${q.difficulty.toLowerCase()}`}>
