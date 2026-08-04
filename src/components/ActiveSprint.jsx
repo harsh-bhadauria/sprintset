@@ -73,6 +73,9 @@ export default function ActiveSprint({
   const lowTimeAlertFired = useRef(false);
   const timesUpFired = useRef(false);
 
+  // Secondary action feedback
+  const [wrongAnimTrigger, setWrongAnimTrigger] = useState(false);
+
   const currentQuestion = queue[currentIndex];
 
   useEffect(() => {
@@ -135,7 +138,9 @@ export default function ActiveSprint({
   const handleIncrementAttempts = () => {
     const nextAttempts = attempts + 1;
     setAttemptsAnimTrigger(true);
+    setWrongAnimTrigger(true);
     setTimeout(() => setAttemptsAnimTrigger(false), 400);
+    setTimeout(() => setWrongAnimTrigger(false), 500);
 
     onUpdateActiveSprintState({
       ...activeSprintState,
@@ -296,7 +301,7 @@ export default function ActiveSprint({
 
   return (
     <div className="active-sprint-container">
-      <div className={`unified-sprint-card glass-card ${animState === 'solved' ? 'pulse-success-glow' : ''} ${animState === 'too-easy' ? 'anim-slide-out' : ''} ${animState === 'gave-up' ? 'anim-neutral-fade' : ''}`}>
+      <div className={`unified-sprint-card glass-card ${animState === 'solved' ? 'pulse-success-glow' : ''} ${animState === 'too-easy' ? 'pulse-blue-glow' : ''} ${animState === 'gave-up' ? 'pulse-red-glow' : ''} ${wrongAnimTrigger ? 'pulse-amber-glow' : ''}`}>
         
         {/* PRE-SPRINT 3-2-1 COUNTDOWN OVERLAY WITH HEAVY 28px BLUR */}
         {preCountdown > 0 && (
@@ -310,8 +315,29 @@ export default function ActiveSprint({
 
         {/* Floating Celebratory Badge on Solved */}
         {animState === 'solved' && (
-          <div className="floating-points-toast">
+          <div className="floating-action-toast toast-solved">
             <span>+{questionValue} Pts!</span>
+          </div>
+        )}
+
+        {/* Floating feedback for Wrong Attempt */}
+        {wrongAnimTrigger && (
+          <div className="floating-action-toast toast-wrong">
+            <span>Wrong Attempt</span>
+          </div>
+        )}
+
+        {/* Floating feedback for Too Easy */}
+        {animState === 'too-easy' && (
+          <div className="floating-action-toast toast-easy">
+            <span>Swapped!</span>
+          </div>
+        )}
+
+        {/* Floating feedback for Gave Up */}
+        {animState === 'gave-up' && (
+          <div className="floating-action-toast toast-gaveup">
+            <span>Skipped</span>
           </div>
         )}
 
@@ -436,7 +462,7 @@ export default function ActiveSprint({
             </div>
             <div className="secondary-actions-compact-row">
               <button
-                className="compact-sec-btn attempt-btn"
+                className={`compact-sec-btn attempt-btn ${wrongAnimTrigger ? 'btn-flash-amber' : ''}`}
                 onClick={handleIncrementAttempts}
                 disabled={isPaused}
                 title="Record an incorrect submission (+1 attempt)"
@@ -580,37 +606,72 @@ export default function ActiveSprint({
           box-shadow: 0 0 35px rgba(16, 185, 129, 0.4) !important;
         }
 
-        .anim-slide-out {
-          transform: translateX(40px);
-          opacity: 0;
+        .pulse-blue-glow {
+          border-color: #60a5fa !important;
+          box-shadow: 0 0 25px rgba(59, 130, 246, 0.3) !important;
         }
 
-        .anim-neutral-fade {
-          opacity: 0.3;
+        .pulse-red-glow {
+          border-color: #ef4444 !important;
+          box-shadow: 0 0 25px rgba(239, 68, 68, 0.3) !important;
         }
 
-        .floating-points-toast {
+        .pulse-amber-glow {
+          border-color: #f59e0b !important;
+          box-shadow: 0 0 25px rgba(245, 158, 11, 0.3) !important;
+        }
+
+        /* Floating Action Toasts */
+        .floating-action-toast {
           position: absolute;
           top: 25%;
           left: 50%;
           transform: translate(-50%, -50%);
-          background: rgba(16, 185, 129, 0.95);
           color: white;
           font-family: var(--font-heading);
           font-weight: 800;
-          font-size: 1.4rem;
           padding: 0.5rem 1.25rem;
           border-radius: var(--radius-full);
-          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5);
           animation: floatUp 0.45s ease forwards;
           pointer-events: none;
           z-index: 10;
         }
 
+        .toast-solved {
+          background: rgba(16, 185, 129, 0.95);
+          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5);
+          font-size: 1.4rem;
+        }
+
+        .toast-wrong {
+          background: rgba(245, 158, 11, 0.9);
+          box-shadow: 0 6px 18px rgba(245, 158, 11, 0.4);
+          font-size: 1rem;
+        }
+
+        .toast-easy {
+          background: rgba(59, 130, 246, 0.9);
+          box-shadow: 0 6px 18px rgba(59, 130, 246, 0.4);
+          font-size: 1rem;
+        }
+
+        .toast-gaveup {
+          background: rgba(239, 68, 68, 0.85);
+          box-shadow: 0 6px 18px rgba(239, 68, 68, 0.4);
+          font-size: 1rem;
+        }
+
         @keyframes floatUp {
           0% { opacity: 0; transform: translate(-50%, 0) scale(0.8); }
-          50% { opacity: 1; transform: translate(-50%, -20px) scale(1.1); }
+          50% { opacity: 1; transform: translate(-50%, -20px) scale(1.05); }
           100% { opacity: 0; transform: translate(-50%, -40px) scale(1); }
+        }
+
+        /* Button flash states for secondary actions */
+        .btn-flash-amber {
+          background: rgba(245, 158, 11, 0.15) !important;
+          border-color: rgba(245, 158, 11, 0.5) !important;
+          color: #f59e0b !important;
         }
 
         .top-control-bar {

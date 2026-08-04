@@ -804,6 +804,7 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
           font-size: 0.75rem;
           font-weight: 600;
           cursor: pointer;
+          white-space: nowrap;
           transition: all var(--transition-fast);
         }
 
