@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Search, Plus, Upload, Download, RotateCcw, Edit2, Trash2, 
   Filter, X, ArrowLeft, BookOpen, Layers, 
-  ChevronRight, MoreVertical, FolderPlus, RefreshCw, AlertTriangle, FileText
+  ChevronRight, MoreVertical, FolderPlus, RefreshCw, AlertTriangle, FileText, Replace
 } from 'lucide-react';
 import { parseCSV, exportToCSV } from '../utils/csvHandler';
 import { formatTopicName } from './SessionSummary';
@@ -75,6 +75,13 @@ export default function QuestionBankManager({
   const [batchCSVFile, setBatchCSVFile] = useState(null);
   const [isCreatingNewSheetInModal, setIsCreatingNewSheetInModal] = useState(false);
   const [newSheetNameInput, setNewSheetNameInput] = useState('');
+
+  // Modal State for Find & Replace
+  const [isFindReplaceModalOpen, setIsFindReplaceModalOpen] = useState(false);
+  const [findReplaceScope, setFindReplaceScope] = useState('GLOBAL'); // 'GLOBAL' | 'ALL' | '<sheetName>'
+  const [findReplaceField, setFindReplaceField] = useState('topic'); // 'topic' | 'sheet' | 'difficulty'
+  const [findReplaceOldValue, setFindReplaceOldValue] = useState('');
+  const [findReplaceNewValue, setFindReplaceNewValue] = useState('');
 
   // Close menus on outside click
   useEffect(() => {
@@ -166,6 +173,24 @@ export default function QuestionBankManager({
     });
   }, [scopedQuestions, searchTerm, selectedTopic, selectedDiff]);
 
+  // --- Find & Replace Calculations ---
+  const targetQuestionsSet = useMemo(() => {
+    if (!findReplaceScope || findReplaceScope === 'GLOBAL' || findReplaceScope === 'ALL') {
+      return questions;
+    }
+    return questions.filter(q => getQuestionSheet(q) === findReplaceScope);
+  }, [questions, findReplaceScope]);
+
+  const matchingQuestionsCount = useMemo(() => {
+    if (!findReplaceOldValue || !findReplaceOldValue.trim()) return 0;
+    const oldValLower = findReplaceOldValue.trim().toLowerCase();
+
+    return targetQuestionsSet.filter(q => {
+      const fieldVal = (q[findReplaceField] || '').toString().trim().toLowerCase();
+      return fieldVal === oldValLower;
+    }).length;
+  }, [targetQuestionsSet, findReplaceField, findReplaceOldValue]);
+
   // Helper stats calculation
   const calcStats = (qList) => {
     const easy = qList.filter(q => q.difficulty === 'Easy').length;
@@ -219,7 +244,7 @@ export default function QuestionBankManager({
       imported.forEach(q => {
         const normalized = {
           ...q,
-          sheet: selectedSheetView // Override sheet to current scope
+          sheet: selectedSheetView
         };
         if (!existingIds.has(q.id)) {
           newQuestions.push(normalized);
@@ -231,6 +256,60 @@ export default function QuestionBankManager({
       alert(`Successfully imported ${imported.length} questions into "${selectedSheetView}"!`);
     } catch (err) {
       alert('Error parsing CSV file: ' + err.message);
+    }
+  };
+
+  // --- Find & Replace Handlers ---
+  const handleOpenFindReplace = (scope) => {
+    setFindReplaceScope(scope);
+    setFindReplaceField('topic');
+    setFindReplaceOldValue('');
+    setFindReplaceNewValue('');
+    setIsGlobalMenuOpen(false);
+    setIsSheetMenuOpen(false);
+    setIsFindReplaceModalOpen(true);
+  };
+
+  const handleApplyFindReplace = (e) => {
+    e.preventDefault();
+    if (!findReplaceOldValue.trim() || !findReplaceNewValue.trim()) {
+      alert('Please provide both old and new values.');
+      return;
+    }
+
+    if (matchingQuestionsCount === 0) {
+      alert('No matching questions found.');
+      return;
+    }
+
+    const oldValClean = findReplaceOldValue.trim();
+    const newValClean = findReplaceNewValue.trim();
+    const scopeText = (!findReplaceScope || findReplaceScope === 'GLOBAL' || findReplaceScope === 'ALL')
+      ? 'all questions'
+      : `questions in "${findReplaceScope}"`;
+
+    const confirmMsg = `This will update ${matchingQuestionsCount} question${matchingQuestionsCount === 1 ? '' : 's'} (${scopeText}) from '${oldValClean}' to '${newValClean}'.\n\nAre you sure you want to proceed?`;
+
+    if (window.confirm(confirmMsg)) {
+      const targetIds = new Set(targetQuestionsSet.map(q => q.id));
+      const oldValLower = oldValClean.toLowerCase();
+
+      const updatedQuestions = questions.map(q => {
+        if (targetIds.has(q.id)) {
+          const currentVal = (q[findReplaceField] || '').toString().trim().toLowerCase();
+          if (currentVal === oldValLower) {
+            return {
+              ...q,
+              [findReplaceField]: newValClean
+            };
+          }
+        }
+        return q;
+      });
+
+      onUpdateQuestions(updatedQuestions);
+      setIsFindReplaceModalOpen(false);
+      alert(`Updated ${matchingQuestionsCount} question${matchingQuestionsCount === 1 ? '' : 's'}.`);
     }
   };
 
@@ -253,7 +332,6 @@ export default function QuestionBankManager({
       saveCustomSheets([...customSheets, cleanName]);
     }
 
-    // If a CSV file was provided, parse and import rows directly into this new sheet
     if (addSheetCSVFile) {
       try {
         const imported = await parseCSV(addSheetCSVFile);
@@ -509,6 +587,15 @@ export default function QuestionBankManager({
                       <span>Export All (CSV)</span>
                     </button>
 
+                    <button
+                      type="button"
+                      className="menu-item-btn"
+                      onClick={() => handleOpenFindReplace('GLOBAL')}
+                    >
+                      <Replace size={15} />
+                      <span>Find & Replace</span>
+                    </button>
+
                     <div className="dropdown-divider" />
 
                     <button
@@ -682,6 +769,15 @@ export default function QuestionBankManager({
                           <Download size={15} />
                           <span>Export All (CSV)</span>
                         </button>
+
+                        <button
+                          type="button"
+                          className="menu-item-btn"
+                          onClick={() => handleOpenFindReplace('ALL')}
+                        >
+                          <Replace size={15} />
+                          <span>Find & Replace (All)</span>
+                        </button>
                       </>
                     ) : (
                       <>
@@ -707,6 +803,15 @@ export default function QuestionBankManager({
                         >
                           <Download size={15} />
                           <span>Export Sheet (CSV)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="menu-item-btn"
+                          onClick={() => handleOpenFindReplace(selectedSheetView)}
+                        >
+                          <Replace size={15} />
+                          <span>Find & Replace (This Sheet)</span>
                         </button>
 
                         <div className="dropdown-divider" />
@@ -795,7 +900,6 @@ export default function QuestionBankManager({
                   <th className="col-topic">Topic</th>
                   <th className="col-diff">Difficulty</th>
                   
-                  {/* Trimmed Redundant Columns: Show Sheet only in 'ALL' view; Show History State only in specific sheet view */}
                   {selectedSheetView === 'ALL' ? (
                     <th className="col-sheet">Sheet</th>
                   ) : (
@@ -812,7 +916,7 @@ export default function QuestionBankManager({
                     const sheetTag = getQuestionSheet(q);
                     return (
                       <tr key={q.id}>
-                        {/* Clickable Question Name Link (Opening in New Tab with Search Fallback, Icon Removed) */}
+                        {/* Clickable Question Name Link */}
                         <td className="col-name font-semibold" title={q.name}>
                           <a
                             href={getQuestionLink(q)}
@@ -901,7 +1005,7 @@ export default function QuestionBankManager({
         </div>
       )}
 
-      {/* Modal 1: Add New Sheet (with optional CSV import) */}
+      {/* Modal 1: Add New Sheet */}
       {isAddSheetModalOpen && (
         <div className="modal-overlay" onClick={() => setIsAddSheetModalOpen(false)}>
           <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
@@ -956,7 +1060,7 @@ export default function QuestionBankManager({
         </div>
       )}
 
-      {/* Modal 2: Add / Edit Question (with Tabbed Single vs Batch CSV Import) */}
+      {/* Modal 2: Add / Edit Question */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
@@ -967,7 +1071,6 @@ export default function QuestionBankManager({
               </button>
             </div>
 
-            {/* Tab selection inside Add Question modal */}
             {!editingQuestion && (
               <div className="modal-tab-pills">
                 <button
@@ -1087,7 +1190,6 @@ export default function QuestionBankManager({
                 </div>
               </form>
             ) : (
-              /* Batch CSV Import Tab */
               <form onSubmit={handleBatchCSVSubmit} className="form-body">
                 <div className="destination-badge-box">
                   <span className="text-muted font-semibold">Destination Sheet:</span>
@@ -1122,6 +1224,99 @@ export default function QuestionBankManager({
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3: Find & Replace Utility */}
+      {isFindReplaceModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsFindReplaceModalOpen(false)}>
+          <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Find & Replace</h3>
+              <button className="close-btn" onClick={() => setIsFindReplaceModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleApplyFindReplace} className="form-body">
+              <div className="destination-badge-box">
+                <span className="text-muted font-semibold">Operating Scope:</span>
+                <strong className="text-amber">
+                  {(!findReplaceScope || findReplaceScope === 'GLOBAL' || findReplaceScope === 'ALL')
+                    ? 'All Questions'
+                    : `Sheet "${findReplaceScope}"`}
+                </strong>
+              </div>
+
+              <div className="form-group">
+                <label>Target Field</label>
+                <select
+                  value={findReplaceField}
+                  onChange={(e) => setFindReplaceField(e.target.value)}
+                  className="input-field-full"
+                >
+                  <option value="topic">Topic</option>
+                  <option value="sheet">Sheet / Collection</option>
+                  <option value="difficulty">Difficulty</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Find (Old Value) *</label>
+                <input
+                  type="text"
+                  required
+                  list="existing-field-values"
+                  value={findReplaceOldValue}
+                  onChange={(e) => setFindReplaceOldValue(e.target.value)}
+                  placeholder="e.g. Aray & Hashng"
+                  className="input-field-full"
+                />
+                <datalist id="existing-field-values">
+                  {findReplaceField === 'topic' && allTopics.map(t => <option key={t} value={t} />)}
+                  {findReplaceField === 'sheet' && orderedSheetNames.map(s => <option key={s} value={s} />)}
+                  {findReplaceField === 'difficulty' && ['Easy', 'Medium', 'Hard'].map(d => <option key={d} value={d} />)}
+                </datalist>
+              </div>
+
+              <div className="form-group">
+                <label>Replace With (New Value) *</label>
+                <input
+                  type="text"
+                  required
+                  value={findReplaceNewValue}
+                  onChange={(e) => setFindReplaceNewValue(e.target.value)}
+                  placeholder="e.g. Arrays & Hashing"
+                  className="input-field-full"
+                />
+              </div>
+
+              {/* Match Counter Live Preview */}
+              <div className="match-counter-preview">
+                <span className="text-muted">Matches Preview:</span>
+                <span className={`count-badge ${matchingQuestionsCount > 0 ? 'badge-match-found' : 'badge-match-none'}`}>
+                  {matchingQuestionsCount} question{matchingQuestionsCount === 1 ? '' : 's'} matching
+                </span>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsFindReplaceModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={matchingQuestionsCount === 0 || !findReplaceOldValue.trim() || !findReplaceNewValue.trim()}
+                >
+                  Apply Replace
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1676,12 +1871,42 @@ export default function QuestionBankManager({
         .destination-badge-box {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          justify-content: space-between;
           background: rgba(249, 115, 22, 0.1);
           border: 1px solid rgba(249, 115, 22, 0.25);
           padding: 0.6rem 0.85rem;
           border-radius: var(--radius-md);
           font-size: 0.85rem;
+        }
+
+        .match-counter-preview {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: var(--bg-input);
+          border: 1px solid var(--border-subtle);
+          padding: 0.6rem 0.85rem;
+          border-radius: var(--radius-md);
+          font-size: 0.85rem;
+        }
+
+        .badge-match-found {
+          background: rgba(16, 185, 129, 0.15);
+          color: #10b981;
+          border: 1px solid rgba(16, 185, 129, 0.35);
+          padding: 0.2rem 0.65rem;
+          border-radius: var(--radius-full);
+          font-weight: 700;
+          font-size: 0.78rem;
+        }
+
+        .badge-match-none {
+          background: var(--bg-card);
+          color: var(--text-muted);
+          border: 1px solid var(--border-subtle);
+          padding: 0.2rem 0.65rem;
+          border-radius: var(--radius-full);
+          font-size: 0.78rem;
         }
 
         .form-subtext {
