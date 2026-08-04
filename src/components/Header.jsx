@@ -1,14 +1,17 @@
 import React from 'react';
-import { Database, BarChart3, Settings, Zap, Moon, Sun, Clock, Triangle, Shield } from 'lucide-react';
+import { Database, BarChart3, Settings, Zap, Moon, Sun, Clock, Triangle, PawPrint, RefreshCw } from 'lucide-react';
 
 export default function Header({ 
   activeTab, 
   onSelectTab, 
   todayFocusMinutes = 0,
   vetoMinutes = 0,
+  vetoEnabled = true,
   onOpenVetoModal,
   settings = {}, 
-  onToggleTheme 
+  onToggleTheme,
+  isSyncing = false,
+  onSyncCloud
 }) {
   const isDark = settings?.theme !== 'light';
 
@@ -53,22 +56,32 @@ export default function Header({
 
         {/* Right Metric Pill & Actions */}
         <div className="header-right">
+          {/* Cloud Sync Indicator */}
+          {isSyncing && (
+            <div className="today-metric-pill sync-indicator-pill" title="Syncing with Cloud">
+              <RefreshCw size={14} className="sync-spin" />
+              <span className="text-xs font-semibold">Syncing</span>
+            </div>
+          )}
+
           {/* Today's Focus Metric */}
           <div className="today-metric-pill" title="Total focus minutes logged today">
             <Clock size={15} className="text-amber" />
             <span><strong>{todayFocusMinutes}m</strong> focused</span>
           </div>
 
-          {/* Veto Time Bank Metric */}
-          <button 
-            type="button"
-            className="today-metric-pill veto-metric-pill"
-            onClick={onOpenVetoModal}
-            title="Open Veto Time Bank Rewards & Sync"
-          >
-            <Shield size={15} className="text-amber" />
-            <span><strong>+{vetoMinutes}m</strong> Veto</span>
-          </button>
+          {/* Veto Cat Mascot Time Bank Metric */}
+          {vetoEnabled && (
+            <button 
+              type="button"
+              className="today-metric-pill veto-metric-pill"
+              onClick={onOpenVetoModal}
+              title="Veto Time Bank Rewards"
+            >
+              <PawPrint size={15} className="text-amber" />
+              <span><strong>+{vetoMinutes}m</strong> Veto</span>
+            </button>
+          )}
 
           <button 
             className="icon-btn" 
@@ -76,6 +89,15 @@ export default function Header({
             title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
           >
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          <button 
+            className={`icon-btn ${isSyncing ? 'sync-spin' : ''}`}
+            onClick={onSyncCloud}
+            disabled={isSyncing}
+            title="Force Cloud Sync"
+          >
+            <RefreshCw size={18} />
           </button>
 
           <button 
@@ -190,13 +212,28 @@ export default function Header({
         .today-metric-pill {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.4rem 0.8rem;
-          border-radius: var(--radius-full);
+          gap: 0.5rem;
           background: var(--bg-input);
           border: 1px solid var(--border-subtle);
-          font-size: 0.82rem;
+          padding: 0.4rem 0.85rem;
+          border-radius: var(--radius-full);
+          font-size: 0.85rem;
           color: var(--text-secondary);
+        }
+
+        .sync-indicator-pill {
+          background: rgba(14, 165, 233, 0.1);
+          border-color: rgba(14, 165, 233, 0.3);
+          color: #0ea5e9;
+        }
+        
+        .sync-spin {
+          animation: spin 1.5s linear infinite;
+        }
+        
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
 
         .today-metric-pill strong {

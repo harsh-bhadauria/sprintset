@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import StartSprintModal from './components/StartSprintModal';
 import ActiveSprint from './components/ActiveSprint';
@@ -48,6 +48,7 @@ export default function App() {
   }, [activeSprintState]);
 
   const [cloudUnclaimedPoints, setCloudUnclaimedPoints] = useState(null);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
   // Total points earned across lifetime sessions
   const totalLifetimePoints = useMemo(() => {
@@ -65,22 +66,123 @@ export default function App() {
   const vetoMinutes = Math.floor(unclaimedVetoPoints / 100);
   const syncKey = appState.settings?.syncKey || DEFAULT_SYNC_KEY;
 
+  const getMergedState = (prev, remotePayload) => {
+    const nextState = { ...prev };
+    
+    // 1. Merge Settings using Last-Write-Wins (LWW)
+    if (remotePayload.settings) {
+      const localTime = prev.settings?.updatedAtMs || 0;
+      const remoteTime = remotePayload.settings.updatedAtMs || 0;
+      
+      if (remoteTime > localTime) {
+        nextState.settings = { ...prev.settings, ...remotePayload.settings };
+      }
+    }
+    
+    // 2. Merge Veto Points
+    if (remotePayload.claimedVetoPoints !== undefined && remotePayload.claimedVetoPoints > (prev.claimedVetoPoints || 0)) {
+      nextState.claimedVetoPoints = remotePayload.claimedVetoPoints;
+    }
+
+    // 3. Merge Sessions (Deduplicate by ID)
+    if (remotePayload.sessions && Array.isArray(remotePayload.sessions)) {
+      const localSessionIds = new Set((prev.sessions || []).map(s => s.id));
+      const missingRemoteSessions = remotePayload.sessions.filter(s => !localSessionIds.has(s.id));
+      if (missingRemoteSessions.length > 0) {
+        nextState.sessions = [...(prev.sessions || []), ...missingRemoteSessions].sort((a, b) => {
+          return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
+        });
+      }
+    }
+
+    // 4. Merge QuestionBank
+    if (remotePayload.questionStates) {
+      const nextQStates = { ...(prev.questionStates || {}) };
+      Object.keys(remotePayload.questionStates).forEach(qId => {
+        const remoteQ = remotePayload.questionStates[qId];
+        const localQ = nextQStates[qId];
+        if (!localQ || (new Date(remoteQ.lastAttemptedAt).getTime() > new Date(localQ.lastAttemptedAt).getTime())) {
+          nextQStates[qId] = remoteQ;
+        }
+      });
+      nextState.questionStates = nextQStates;
+    }
+
+    return nextState;
+  };
+
+  const performSmartMerge = (remotePayload) => {
+    if (remotePayload.unclaimedVetoPoints !== undefined) {
+      setCloudUnclaimedPoints(remotePayload.unclaimedVetoPoints);
+    }
+    setAppState(prev => getMergedState(prev, remotePayload));
+  };
+
   // Auto-sync Cloud on initial load & key change
   useEffect(() => {
+    setIsCloudSyncing(true);
     pullSyncData(syncKey).then(remote => {
       if (remote) {
-        if (remote.unclaimedVetoPoints !== undefined) {
-          setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
-        }
-        if (remote.claimedVetoPoints !== undefined && remote.claimedVetoPoints > claimedVetoPoints) {
-          setAppState(prev => ({
-            ...prev,
-            claimedVetoPoints: remote.claimedVetoPoints
-          }));
-        }
+        performSmartMerge(remote);
       }
+      setIsCloudSyncing(false);
     });
   }, [syncKey]);
+
+  // Auto-sync Cloud when sessions or key settings change
+  useEffect(() => {
+    const pushCurrentState = async () => {
+      setIsCloudSyncing(true);
+      await pushSyncData(syncKey, {
+        ...appState,
+        unclaimedVetoPoints: localUnclaimedPoints
+      });
+      setIsCloudSyncing(false);
+    };
+
+    // Prevent pushing empty state on first load if we are waiting for pull
+    if (appState.sessions && appState.sessions.length > 0) {
+      pushCurrentState();
+    }
+  }, [appState.sessions?.length, appState.claimedVetoPoints, appState.settings?.updatedAtMs, syncKey]);
+
+  // Push on visibility hidden (tab close / switch)
+  const appStateRef = useRef(appState);
+  const syncKeyRef = useRef(syncKey);
+  const unclaimedPointsRef = useRef(cloudUnclaimedPoints);
+
+  useEffect(() => {
+    appStateRef.current = appState;
+    syncKeyRef.current = syncKey;
+    unclaimedPointsRef.current = cloudUnclaimedPoints;
+  }, [appState, syncKey, cloudUnclaimedPoints]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' || document.visibilityState === 'unloaded') {
+        const currentState = appStateRef.current;
+        const currentKey = syncKeyRef.current;
+        const currentCloudPoints = unclaimedPointsRef.current;
+        
+        const lifetimePoints = (currentState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
+        const claimed = currentState.claimedVetoPoints || 0;
+        const localUnclaimed = Math.max(0, lifetimePoints - claimed);
+        const finalUnclaimed = currentCloudPoints !== null ? Math.max(currentCloudPoints, localUnclaimed) : localUnclaimed;
+        
+        pushSyncData(currentKey, {
+          ...currentState,
+          unclaimedVetoPoints: finalUnclaimed
+        });
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleVisibilityChange);
+    };
+  }, []);
 
   // Handlers for Veto Rewards & Sync
   const handleUpdateSyncKey = (newKey) => {
@@ -88,7 +190,8 @@ export default function App() {
       ...prev,
       settings: {
         ...prev.settings,
-        syncKey: newKey
+        syncKey: newKey,
+        updatedAtMs: Date.now()
       }
     }));
   };
@@ -100,36 +203,37 @@ export default function App() {
       claimedVetoPoints: nextClaimed
     }));
     setCloudUnclaimedPoints(0);
-
-    pushSyncData(syncKey, {
-      claimedVetoPoints: nextClaimed,
-      totalLifetimePoints,
-      unclaimedVetoPoints: 0
-    });
   };
 
   const handleSyncCloud = async () => {
-    // If local device has unclaimed points, push first
-    if (localUnclaimedPoints > 0) {
-      await pushSyncData(syncKey, {
-        claimedVetoPoints,
-        totalLifetimePoints,
-        unclaimedVetoPoints: localUnclaimedPoints
-      });
-    }
-    // Pull remote latest
+    setIsCloudSyncing(true);
+    // 1. Pull remote first
     const remote = await pullSyncData(syncKey);
+    let finalStateToPush = appState;
+    
+    // 2. Perform smart merge synchronously
     if (remote) {
-      if (remote.unclaimedVetoPoints !== undefined) {
-        setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
-      }
-      if (remote.claimedVetoPoints !== undefined && remote.claimedVetoPoints > claimedVetoPoints) {
-        setAppState(prev => ({
-          ...prev,
-          claimedVetoPoints: remote.claimedVetoPoints
-        }));
-      }
+      finalStateToPush = getMergedState(appState, remote);
+      setAppState(finalStateToPush);
     }
+    
+    // Recalculate true unclaimed points with merged state
+    const mergedLifetimePoints = (finalStateToPush.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
+    const mergedClaimed = finalStateToPush.claimedVetoPoints || 0;
+    const mergedLocalUnclaimed = Math.max(0, mergedLifetimePoints - mergedClaimed);
+    
+    let finalUnclaimed = mergedLocalUnclaimed;
+    if (remote && remote.unclaimedVetoPoints !== undefined) {
+      setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
+      finalUnclaimed = Math.max(mergedLocalUnclaimed, remote.unclaimedVetoPoints);
+    }
+    
+    // 3. Push the perfect merged state back to cloud
+    await pushSyncData(syncKey, {
+      ...finalStateToPush,
+      unclaimedVetoPoints: finalUnclaimed
+    });
+    setIsCloudSyncing(false);
   };
 
   // Calculate today's focus metrics for header pill and analytics overview
@@ -143,7 +247,8 @@ export default function App() {
     (appState.sessions || []).forEach(sess => {
       if (sess.startedAt && new Date(sess.startedAt).toDateString() === todayStr) {
         sprintsCountToday += 1;
-        totalSecondsToday += sess.actualDurationSec || sess.durationSec || 0;
+        const actualSec = sess.actualDurationSec !== undefined ? sess.actualDurationSec : sess.durationSec;
+        totalSecondsToday += actualSec || 0;
         pointsEarnedToday += sess.points || 0;
         (sess.results || []).forEach(r => {
           if (r.status === 'done') questionsSolvedToday += 1;
@@ -168,7 +273,8 @@ export default function App() {
       ...prev,
       settings: {
         ...prev.settings,
-        theme: newTheme
+        theme: newTheme,
+        updatedAtMs: Date.now()
       }
     }));
   };
@@ -338,7 +444,10 @@ export default function App() {
   const handleSaveSettings = (newSettings) => {
     setAppState(prev => ({
       ...prev,
-      settings: newSettings
+      settings: {
+        ...newSettings,
+        updatedAtMs: Date.now()
+      }
     }));
   };
 
@@ -356,9 +465,12 @@ export default function App() {
         onSelectTab={setActiveTab}
         todayFocusMinutes={todayStats.minutesFocused}
         vetoMinutes={vetoMinutes}
+        vetoEnabled={appState.settings?.vetoEnabled !== false}
         onOpenVetoModal={() => setIsVetoModalOpen(true)}
         settings={appState.settings}
         onToggleTheme={handleToggleTheme}
+        isSyncing={isCloudSyncing}
+        onSyncCloud={handleSyncCloud}
       />
 
       <VetoRewardsModal

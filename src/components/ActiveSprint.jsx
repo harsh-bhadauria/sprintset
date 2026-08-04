@@ -10,7 +10,7 @@ export default function ActiveSprint({
   onUpdateActiveSprintState,
   onFinishSprint
 }) {
-  const { sessionData, currentIndex = 0, attempts = 0, results = [], questionStartTime = Date.now(), preCountdownDone = false } = activeSprintState || {};
+  const { sessionData, currentIndex = 0, attempts = 0, results = [], preCountdownDone = false, questionStartElapsedSec = 0 } = activeSprintState || {};
   const { durationSec, queue = [], seed, totalPausedMs = 0, isPaused = false, pauseStartedAtMs = null } = sessionData || {};
 
   // Pre-sprint 3-2-1 countdown state
@@ -169,7 +169,7 @@ export default function ActiveSprint({
         onUpdateActiveSprintState({
           ...activeSprintState,
           attempts: 0,
-          questionStartTime: Date.now(),
+          questionStartElapsedSec: Math.floor((Date.now() - (sessionData?.startedAtMs || actualStartMs) - totalPausedMs) / 1000),
           sessionData: {
             ...sessionData,
             queue: updatedQueue
@@ -187,8 +187,9 @@ export default function ActiveSprint({
 
     setTimeout(() => {
       setAnimState('none');
-      const qStartTime = questionStartTime || Date.now();
-      const timeSec = Math.max(1, Math.round((Date.now() - qStartTime) / 1000));
+      const startMs = sessionData?.startedAtMs || actualStartMs;
+      const currentElapsedSec = Math.floor((Date.now() - startMs - totalPausedMs) / 1000);
+      const timeSec = Math.max(1, currentElapsedSec - (activeSprintState?.questionStartElapsedSec || 0));
       const newResult = {
         questionId: currentQuestion.id,
         questionName: currentQuestion.name,
@@ -210,8 +211,9 @@ export default function ActiveSprint({
 
     setTimeout(() => {
       setAnimState('none');
-      const qStartTime = questionStartTime || Date.now();
-      const timeSec = Math.round((Date.now() - qStartTime) / 1000);
+      const startMs = sessionData?.startedAtMs || actualStartMs;
+      const currentElapsedSec = Math.floor((Date.now() - startMs - totalPausedMs) / 1000);
+      const timeSec = Math.max(1, currentElapsedSec - (activeSprintState?.questionStartElapsedSec || 0));
       const newResult = {
         questionId: currentQuestion.id,
         questionName: currentQuestion.name,
@@ -236,7 +238,7 @@ export default function ActiveSprint({
         currentIndex: currentIndex + 1,
         attempts: 0,
         results: nextResults,
-        questionStartTime: Date.now()
+        questionStartElapsedSec: Math.floor((Date.now() - (sessionData?.startedAtMs || actualStartMs) - totalPausedMs) / 1000)
       });
     } else {
       finishSprintWithResults(nextResults);
@@ -248,7 +250,8 @@ export default function ActiveSprint({
   };
 
   const finishSprintWithResults = (finalResults, isEarly = false) => {
-    const totalDurationTaken = durationSec - timeLeftSec;
+    const currentLeft = computeTimeLeft();
+    const totalDurationTaken = durationSec - currentLeft;
 
     let points = 0;
     finalResults.forEach(r => {

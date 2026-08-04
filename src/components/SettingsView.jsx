@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, Shield, Eye, EyeOff, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, PawPrint, Eye, EyeOff, Lock, RefreshCw } from 'lucide-react';
 import { exportStateJSON, importStateJSON } from '../utils/storage';
 import { exportToCSV, parseCSV } from '../utils/csvHandler';
+import { generateRandomSyncKey } from '../utils/cloudSync';
 
 export default function SettingsView({ 
   settings: propSettings, 
@@ -40,6 +41,16 @@ export default function SettingsView({
 
   const [toastMsg, setToastMsg] = useState('');
   const [showSettingsSyncKey, setShowSettingsSyncKey] = useState(false);
+
+  // Auto-update local state when props (e.g. from cloud sync) change
+  useEffect(() => {
+    setPtsEasy(savedPtsEasy);
+    setPtsMedium(savedPtsMedium);
+    setPtsHard(savedPtsHard);
+    setWeightEasy(savedWeightEasy);
+    setWeightMedium(savedWeightMedium);
+    setWeightHard(savedWeightHard);
+  }, [savedPtsEasy, savedPtsMedium, savedPtsHard, savedWeightEasy, savedWeightMedium, savedWeightHard]);
 
   // Check if current form inputs differ from saved settings baseline
   const hasUnsavedChanges = 
@@ -235,44 +246,6 @@ export default function SettingsView({
           </div>
         </section>
 
-        {/* Section: Veto Time Bank & Cloud Sync Key */}
-        <section className="settings-stacked-section">
-          <div className="setting-single-line-row">
-            <div className="setting-label-col">
-              <h3 className="setting-heading flex items-center gap-2">
-                <Shield size={18} className="text-amber" />
-                <span>Veto Cloud Sync Key</span>
-                <span className="text-xs text-emerald font-semibold flex items-center gap-1">
-                  <Lock size={11} /> SHA-256 Encrypted
-                </span>
-              </h3>
-              <p className="setting-subtext">Secret passphrase used to sync your Veto time bank between devices</p>
-            </div>
-
-            <div className="sync-key-settings-input flex items-center gap-2">
-              <input
-                type={showSettingsSyncKey ? 'text' : 'password'}
-                value={settings.syncKey || 'PADHLEBSDK'}
-                onChange={(e) => {
-                  const val = e.target.value.toUpperCase();
-                  onSaveSettings({ ...settings, syncKey: val });
-                }}
-                className="input-field-full text-center font-mono font-bold uppercase"
-                style={{ width: '170px' }}
-                placeholder="PADHLEBSDK"
-              />
-              <button
-                type="button"
-                className="btn btn-secondary p-2"
-                onClick={() => setShowSettingsSyncKey(!showSettingsSyncKey)}
-                title={showSettingsSyncKey ? 'Hide Secret Key' : 'Reveal Secret Key'}
-              >
-                {showSettingsSyncKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-        </section>
-
         {/* Section 1: Scoring Configuration */}
         <section className="settings-stacked-section">
           <div className="setting-single-line-row">
@@ -427,8 +400,103 @@ export default function SettingsView({
         </div>
       </section>
 
+      {/* Cloud Sync Profile Section */}
+      <section className="settings-stacked-section">
+        <div className="setting-single-line-row">
+          <div className="setting-label-col">
+            <span className="text-sm font-bold text-sky-500 flex items-center gap-1 mb-1">
+              <Lock size={14} className="text-sky-500" /> Private Cloud Sync Key
+            </span>
+            <p className="setting-subtext">Secret passphrase used to securely link your laptop and phone profile data</p>
+          </div>
+
+          <div className="sync-key-settings-input" style={{ display: 'flex', alignItems: 'center' }}>
+            <div 
+              style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                background: 'var(--bg-input)', 
+                border: '1.5px solid var(--border-subtle)', 
+                borderRadius: 'var(--radius-md)', 
+                overflow: 'hidden' 
+              }}
+            >
+              <input
+                type={showSettingsSyncKey ? 'text' : 'password'}
+                value={settings.syncKey || ''}
+                onChange={(e) => {
+                  const val = e.target.value.toUpperCase();
+                  onSaveSettings({ ...settings, syncKey: val });
+                }}
+                className="text-center font-mono font-bold uppercase"
+                style={{ 
+                  width: '150px', 
+                  background: 'transparent', 
+                  border: 'none', 
+                  padding: '0.45rem', 
+                  color: 'var(--text-primary)',
+                  outline: 'none'
+                }}
+                placeholder="SHADOW-PAW-482"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSettingsSyncKey(!showSettingsSyncKey)}
+                title={showSettingsSyncKey ? 'Hide Key' : 'Reveal Key'}
+                style={{ 
+                  background: 'transparent', 
+                  border: 'none', 
+                  cursor: 'pointer',
+                  padding: '0 0.6rem 0 0.2rem',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {showSettingsSyncKey ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* Standalone Veto Integration Section */}
+      <section className="settings-stacked-section veto-section-card">
+        <div className="setting-single-line-row">
+          <div className="setting-label-col">
+            <h3 className="setting-heading flex items-center gap-2"><PawPrint size={16} className="text-amber" /> Veto Integration</h3>
+            <p className="setting-subtext">Earn screen time in Veto's Time Bank when you complete DSA sprints</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="toggle-switch-label">
+              <input
+                type="checkbox"
+                checked={Boolean(settings.vetoEnabled)}
+                onChange={(e) => {
+                  onSaveSettings({
+                    ...settings,
+                    vetoEnabled: e.target.checked
+                  });
+                }}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
       {/* Section 4: Danger Zone */}
-      <section className="settings-stacked-section danger-stacked">
+      <section className="settings-stacked-section danger-stacked mt-4">
+        <div className="danger-zone-header" style={{ marginBottom: '1.25rem' }}>
+          <h3 className="setting-heading font-bold" style={{ color: '#ef4444' }}>
+            Danger Zone
+          </h3>
+          <p className="setting-subtext">Irreversible destructive actions for local storage and progress</p>
+        </div>
+
         <div className="setting-single-line-row danger-row-bg">
           <div className="setting-label-col">
             <h3 className="setting-heading text-danger">Reset All Local Data</h3>
@@ -693,6 +761,54 @@ export default function SettingsView({
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-4px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Styled Toggle Switch */
+        .toggle-switch-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.65rem;
+          cursor: pointer;
+          user-select: none;
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .toggle-switch-label input[type="checkbox"] {
+          display: none;
+        }
+
+        .toggle-slider {
+          position: relative;
+          width: 42px;
+          height: 24px;
+          background: rgba(255, 255, 255, 0.12);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-full);
+          transition: all 0.2s ease;
+        }
+
+        .toggle-slider::before {
+          content: '';
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 18px;
+          height: 18px;
+          background: var(--text-secondary);
+          border-radius: 50%;
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
+        }
+
+        .toggle-switch-label input[type="checkbox"]:checked + .toggle-slider {
+          background: rgba(var(--accent-rgb), 0.25);
+          border-color: rgba(var(--accent-rgb), 0.6);
+        }
+
+        .toggle-switch-label input[type="checkbox"]:checked + .toggle-slider::before {
+          transform: translateX(18px);
+          background: var(--amber-main);
         }
 
         @media (max-width: 768px) {

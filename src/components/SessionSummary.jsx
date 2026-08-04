@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Award, CheckCircle2, XCircle, Clock, Home, Play, Edit3, ExternalLink, Shield } from 'lucide-react';
+import { Award, CheckCircle2, XCircle, Clock, Home, Play, Edit3, ExternalLink, PawPrint } from 'lucide-react';
 
 export function formatTopicName(topic) {
   if (!topic) return '';
@@ -238,15 +238,6 @@ export default function SessionSummary({
           </div>
         </div>
 
-        <div className="kpi-card">
-          <div className="kpi-icon-group icon-gold">
-            <Shield size={20} />
-          </div>
-          <div className="kpi-info">
-            <span className="kpi-value text-amber">+{Math.floor((points || 0) / 100)}m</span>
-            <span className="kpi-label">Veto Time Bank Earned</span>
-          </div>
-        </div>
       </div>
 
       {/* Action Navigation Buttons */}

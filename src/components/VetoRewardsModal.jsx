@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Shield, Zap, Clock, CheckCircle2, Copy, ExternalLink, RefreshCw, X, Key, Eye, EyeOff, Lock } from 'lucide-react';
+import { PawPrint, Zap, Clock, CheckCircle2, Copy, ExternalLink, RefreshCw, X, Key, Eye, EyeOff, Lock } from 'lucide-react';
 import { DEFAULT_SYNC_KEY, generateVetoDeepLink } from '../utils/cloudSync';
 
 export default function VetoRewardsModal({
@@ -58,13 +58,12 @@ export default function VetoRewardsModal({
         <div className="modal-header">
           <div className="veto-title-group">
             <div className="veto-icon-badge">
-              <Shield size={22} className="text-amber" />
+              <PawPrint size={22} className="text-amber" />
             </div>
             <div>
               <h3>Veto Time Bank Rewards</h3>
-              <p className="text-xs text-muted flex items-center gap-1">
-                <Lock size={11} className="text-emerald" />
-                <span>Private SHA-256 Encrypted Sync</span>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.75, maxWidth: '280px', lineHeight: '1.3', marginTop: '0.35rem', fontWeight: 500 }}>
+                Convert your hard-earned focus points into guilt-free screen time on your phone.
               </p>
             </div>
           </div>
@@ -74,71 +73,7 @@ export default function VetoRewardsModal({
         </div>
 
         <div className="veto-body">
-          {/* Masked Sync Key Box */}
-          <div className="sync-key-box glass-card">
-            <div className="sync-key-header">
-              <span className="flex items-center gap-1.5 text-xs text-muted">
-                <Key size={13} />
-                <span>Private Sync Key:</span>
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="text-xs text-muted hover:text-primary flex items-center gap-1"
-                  onClick={() => setShowKey(!showKey)}
-                  title={showKey ? 'Hide Key' : 'Reveal Key'}
-                >
-                  {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
-                  <span>{showKey ? 'Hide' : 'Reveal'}</span>
-                </button>
 
-                {!isEditingKey && (
-                  <button
-                    type="button"
-                    className="text-xs text-amber font-semibold hover:underline ml-1"
-                    onClick={() => {
-                      setKeyInput(currentKey);
-                      setIsEditingKey(true);
-                    }}
-                  >
-                    Edit
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {isEditingKey ? (
-              <form onSubmit={handleSaveKey} className="sync-key-form">
-                <input
-                  type={showKey ? 'text' : 'password'}
-                  required
-                  value={keyInput}
-                  onChange={(e) => setKeyInput(e.target.value.toUpperCase())}
-                  placeholder="Enter secret key..."
-                  className="input-field-full text-center font-mono font-bold uppercase"
-                  autoFocus
-                />
-                <div className="flex gap-2 justify-center mt-2">
-                  <button
-                    type="button"
-                    className="btn btn-secondary text-xs"
-                    onClick={() => setIsEditingKey(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary text-xs">
-                    Save Key
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="sync-key-display">
-                <span className="key-badge">
-                  {showKey ? currentKey : maskString(currentKey)}
-                </span>
-              </div>
-            )}
-          </div>
 
           {/* Points & Time Stats */}
           <div className="veto-stats-grid">
@@ -160,22 +95,47 @@ export default function VetoRewardsModal({
           </div>
 
           {/* Actions */}
-          <div className="veto-actions mt-4">
+          <div className="veto-actions" style={{ marginTop: '1.25rem' }}>
             <button
               type="button"
-              className="btn btn-primary btn-claim-veto full-width"
+              className="btn btn-claim-veto full-width"
               onClick={handleClaimClick}
               disabled={unclaimedPoints <= 0}
+              style={{ 
+                padding: '1.25rem 1.5rem', 
+                fontSize: '1.15rem', 
+                fontWeight: 800,
+                background: 'rgb(var(--accent-rgb))',
+                border: 'none',
+                boxShadow: '0 4px 14px 0 rgba(var(--accent-rgb), 0.4)',
+                color: '#ffffff',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                transition: 'all 0.2s ease',
+                borderRadius: 'var(--radius-lg)'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(var(--accent-rgb), 0.65)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 14px 0 rgba(var(--accent-rgb), 0.4)'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
-              <ExternalLink size={18} />
-              <span>Claim {earnedMinutes} Mins in Veto App</span>
+              <span>Transfer to Veto</span>
             </button>
 
-            <div className="secondary-veto-actions">
+            <div className="secondary-veto-actions" style={{ gap: '0.65rem', marginTop: '0.65rem', display: 'flex', justifyContent: 'center' }}>
               <button
                 type="button"
-                className="btn btn-secondary text-xs"
+                className="btn text-xs font-bold"
+                style={{
+                  background: copiedToast ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.05)',
+                  border: `1px solid ${copiedToast ? 'rgba(16, 185, 129, 0.5)' : 'rgba(16, 185, 129, 0.2)'}`,
+                  color: 'var(--emerald-main, #10b981)',
+                  padding: '0.5rem 1rem',
+                  borderRadius: 'var(--radius-full)',
+                  transition: 'all 0.2s ease',
+                  flex: 1
+                }}
                 onClick={handleCopyLink}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'; e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.4)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = copiedToast ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.05)'; e.currentTarget.style.borderColor = copiedToast ? 'rgba(16, 185, 129, 0.5)' : 'rgba(16, 185, 129, 0.2)'; }}
               >
                 <Copy size={14} />
                 <span>{copiedToast ? 'Copied Deep Link!' : 'Copy Claim Link'}</span>
@@ -183,19 +143,26 @@ export default function VetoRewardsModal({
 
               <button
                 type="button"
-                className="btn btn-secondary text-xs"
+                className="btn text-xs font-bold"
+                style={{
+                  background: isSyncing ? 'rgba(56, 189, 248, 0.15)' : 'rgba(56, 189, 248, 0.05)',
+                  border: `1px solid ${isSyncing ? 'rgba(56, 189, 248, 0.5)' : 'rgba(56, 189, 248, 0.2)'}`,
+                  color: '#38bdf8',
+                  padding: '0.5rem 1rem',
+                  borderRadius: 'var(--radius-full)',
+                  transition: 'all 0.2s ease',
+                  flex: 1
+                }}
                 onClick={handleSyncClick}
                 disabled={isSyncing}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)'; e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = isSyncing ? 'rgba(56, 189, 248, 0.15)' : 'rgba(56, 189, 248, 0.05)'; e.currentTarget.style.borderColor = isSyncing ? 'rgba(56, 189, 248, 0.5)' : 'rgba(56, 189, 248, 0.2)'; }}
               >
                 <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
                 <span>{isSyncing ? 'Syncing...' : 'Sync Cloud'}</span>
               </button>
             </div>
           </div>
-
-          <p className="veto-footer-note text-xs text-muted text-center mt-3">
-            100 Sprintset Points = 1 Minute of Veto Time Bank credit. Tap above on mobile to launch Veto!
-          </p>
         </div>
       </div>
     </div>,
