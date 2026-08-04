@@ -1789,28 +1789,102 @@ export default function QuestionBankManager({
           flex-wrap: wrap;
         }
 
-        .select-wrapper {
-          display: flex;
+        /* Custom Select Component Styles */
+        .custom-select-container {
+          position: relative;
+          display: inline-block;
+          z-index: 50;
+        }
+
+        .custom-select-trigger {
+          display: inline-flex;
           align-items: center;
           gap: 0.5rem;
           background: var(--bg-input);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md);
-          padding: 0.4rem 0.75rem;
+          padding: 0.5rem 0.9rem;
+          color: var(--text-primary);
+          font-family: var(--font-sans);
           font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.2s ease;
         }
 
-        .filter-select {
-          background: transparent;
-          border: none;
-          color: var(--text-primary);
-          outline: none;
-          font-size: 0.85rem;
+        .custom-select-trigger:hover,
+        .custom-select-trigger.active {
+          border-color: var(--amber-main);
+          background: var(--bg-card-hover);
+          box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.2);
         }
 
-        .filter-select option {
-          background: var(--bg-secondary);
-          color: var(--text-primary);
+        .select-arrow {
+          color: var(--text-secondary);
+          transition: transform 0.2s ease;
+        }
+
+        .select-arrow.rotate {
+          transform: rotate(180deg);
+          color: var(--amber-main);
+        }
+
+        .custom-select-dropdown {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          min-width: 220px;
+          max-width: 320px;
+          z-index: 9999;
+          background: #11141d !important;
+          border: 1px solid rgba(var(--accent-rgb), 0.4) !important;
+          border-radius: var(--radius-md);
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(var(--accent-rgb), 0.15);
+          padding: 0.4rem;
+        }
+
+        .select-options-scroll {
+          max-height: 250px;
+          overflow-y: auto;
+          display: flex !important;
+          flex-direction: column !important;
+          gap: 0.25rem !important;
+        }
+
+        .select-option-item {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          width: 100% !important;
+          padding: 0.55rem 0.75rem !important;
+          border-radius: var(--radius-sm) !important;
+          background: transparent !important;
+          border: none !important;
+          color: var(--text-secondary) !important;
+          font-size: 0.83rem !important;
+          font-weight: 500 !important;
+          text-align: left !important;
+          cursor: pointer !important;
+          transition: all 0.15s ease !important;
+          white-space: nowrap !important;
+        }
+
+        .select-option-item:hover {
+          background: rgba(var(--accent-rgb), 0.15) !important;
+          color: #ffffff !important;
+        }
+
+        .select-option-item.selected {
+          background: rgba(var(--accent-rgb), 0.25) !important;
+          color: #ffffff !important;
+          font-weight: 700 !important;
+        }
+
+        .option-check-icon {
+          color: var(--amber-main);
+          margin-left: 0.5rem;
+          flex-shrink: 0;
         }
 
         /* Edit Mode Toggle Button */
