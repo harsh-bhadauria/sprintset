@@ -1,12 +1,68 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Search, Plus, Upload, Download, RotateCcw, Edit2, Trash2, 
-  Filter, X, ArrowLeft, BookOpen, Layers, 
+  Filter, X, ArrowLeft, BookOpen, Layers, ChevronDown,
   ChevronRight, MoreVertical, FolderPlus, RefreshCw, AlertTriangle, FileText, Replace,
   CheckSquare, Square
 } from 'lucide-react';
 import { parseCSV, exportToCSV } from '../utils/csvHandler';
 import { formatTopicName } from './SessionSummary';
+
+export function CustomSelect({ value, options, onChange, icon: Icon, placeholder = 'Select...' }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOpt = options.find(o => o.value === value) || { label: placeholder, value };
+
+  return (
+    <div className="custom-select-container" ref={ref}>
+      <button
+        type="button"
+        className={`custom-select-trigger ${isOpen ? 'active' : ''}`}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {Icon && <Icon size={14} className="select-icon" />}
+        <span className="select-label">{selectedOpt.label}</span>
+        <ChevronDown size={14} className={`select-arrow ${isOpen ? 'rotate' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="custom-select-dropdown glass-card">
+          <div className="select-options-scroll">
+            {options.map(opt => {
+              const isSelected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`select-option-item ${isSelected ? 'selected' : ''}`}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                >
+                  <span className="option-label">{opt.label}</span>
+                  {isSelected && <CheckSquare size={14} className="option-check-icon" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export const getQuestionSheets = (q) => {
   if (!q) return ['Default'];
@@ -284,9 +340,21 @@ export default function QuestionBankManager({
   }, [questions, selectedSheetView]);
 
   const allTopics = useMemo(() => {
-    const set = new Set(questions.map(q => q.topic || 'General'));
+    const set = new Set(scopedQuestions.map(q => q.topic || 'General'));
     return Array.from(set).sort();
-  }, [questions]);
+  }, [scopedQuestions]);
+
+  const topicOptions = useMemo(() => [
+    { value: 'ALL', label: `All Topics (${allTopics.length})` },
+    ...allTopics.map(t => ({ value: t, label: formatTopicName(t) }))
+  ], [allTopics]);
+
+  const diffOptions = useMemo(() => [
+    { value: 'ALL', label: 'All Difficulties' },
+    { value: 'Easy', label: 'Easy' },
+    { value: 'Medium', label: 'Medium' },
+    { value: 'Hard', label: 'Hard' }
+  ], []);
 
   // Filtered Questions in table view
   const filteredQuestions = useMemo(() => {
@@ -928,32 +996,17 @@ export default function QuestionBankManager({
             </div>
 
             <div className="filters-row">
-              <div className="select-wrapper">
-                <Filter size={14} />
-                <select
-                  value={selectedTopic}
-                  onChange={(e) => setSelectedTopic(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="ALL">All Topics ({allTopics.length})</option>
-                  {allTopics.map(t => (
-                    <option key={t} value={t}>{formatTopicName(t)}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="select-wrapper">
-                <select
-                  value={selectedDiff}
-                  onChange={(e) => setSelectedDiff(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="ALL">All Difficulties</option>
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
-                </select>
-              </div>
+              <CustomSelect
+                value={selectedTopic}
+                options={topicOptions}
+                onChange={setSelectedTopic}
+                icon={Filter}
+              />
+              <CustomSelect
+                value={selectedDiff}
+                options={diffOptions}
+                onChange={setSelectedDiff}
+              />
             </div>
           </div>
 
@@ -1093,7 +1146,7 @@ export default function QuestionBankManager({
       )}
 
       {/* Modal 1: Add New Sheet */}
-      {isAddSheetModalOpen && (
+      {isAddSheetModalOpen && createPortal(
         <div className="modal-overlay" onClick={() => setIsAddSheetModalOpen(false)}>
           <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -1144,11 +1197,12 @@ export default function QuestionBankManager({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal 2: Add / Edit Question (Multi-Select Sheets) */}
-      {isModalOpen && (
+      {isModalOpen && createPortal(
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -1272,11 +1326,12 @@ export default function QuestionBankManager({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal 3: Find & Replace Utility */}
-      {isFindReplaceModalOpen && (
+      {isFindReplaceModalOpen && createPortal(
         <div className="modal-overlay" onClick={() => setIsFindReplaceModalOpen(false)}>
           <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -1296,58 +1351,55 @@ export default function QuestionBankManager({
                 </strong>
               </div>
 
-              <div className="form-group">
-                <label>Target Field</label>
+              <div className="form-group mt-3">
+                <label>Target Field to Match & Replace</label>
                 <select
                   value={findReplaceField}
                   onChange={(e) => setFindReplaceField(e.target.value)}
                   className="input-field-full"
                 >
-                  <option value="topic">Topic</option>
-                  <option value="sheet">Sheet Name</option>
-                  <option value="difficulty">Difficulty</option>
+                  <option value="topic">Topic Category</option>
+                  <option value="sheet">Sheet Membership</option>
+                  <option value="difficulty">Difficulty Level</option>
                 </select>
               </div>
 
-              <div className="form-group">
-                <label>Find (Old Value) *</label>
-                <input
-                  type="text"
-                  required
-                  list="existing-field-values"
-                  value={findReplaceOldValue}
-                  onChange={(e) => setFindReplaceOldValue(e.target.value)}
-                  placeholder="e.g. Aray & Hashng"
-                  className="input-field-full"
-                />
-                <datalist id="existing-field-values">
-                  {findReplaceField === 'topic' && allTopics.map(t => <option key={t} value={t} />)}
-                  {findReplaceField === 'sheet' && orderedSheetNames.map(s => <option key={s} value={s} />)}
-                  {findReplaceField === 'difficulty' && ['Easy', 'Medium', 'Hard'].map(d => <option key={d} value={d} />)}
-                </datalist>
+              <div className="form-row mt-3">
+                <div className="form-group">
+                  <label>Find Exact Value</label>
+                  <input
+                    type="text"
+                    required
+                    value={findReplaceOldValue}
+                    onChange={(e) => setFindReplaceOldValue(e.target.value)}
+                    placeholder="e.g. Array, Binary Trees..."
+                    className="input-field-full"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Replace With New Value</label>
+                  <input
+                    type="text"
+                    required
+                    value={findReplaceNewValue}
+                    onChange={(e) => setFindReplaceNewValue(e.target.value)}
+                    placeholder="e.g. Arrays, Core Trees..."
+                    className="input-field-full"
+                  />
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>Replace With (New Value) *</label>
-                <input
-                  type="text"
-                  required
-                  value={findReplaceNewValue}
-                  onChange={(e) => setFindReplaceNewValue(e.target.value)}
-                  placeholder="e.g. Arrays & Hashing"
-                  className="input-field-full"
-                />
-              </div>
+              {findReplaceOldValue.trim() && (
+                <div className="matching-impact-info mt-2">
+                  <AlertTriangle size={14} className="text-amber" />
+                  <span>
+                    Matches <strong>{matchingQuestionsCount}</strong> question{matchingQuestionsCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+              )}
 
-              {/* Match Counter Live Preview */}
-              <div className="match-counter-preview">
-                <span className="text-muted">Matches Preview:</span>
-                <span className={`count-badge ${matchingQuestionsCount > 0 ? 'badge-match-found' : 'badge-match-none'}`}>
-                  {matchingQuestionsCount} question{matchingQuestionsCount === 1 ? '' : 's'} matching
-                </span>
-              </div>
-
-              <div className="form-actions">
+              <div className="form-actions mt-4">
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -1358,14 +1410,15 @@ export default function QuestionBankManager({
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={matchingQuestionsCount === 0 || !findReplaceOldValue.trim() || !findReplaceNewValue.trim()}
+                  disabled={matchingQuestionsCount === 0 || !findReplaceNewValue.trim()}
                 >
-                  Apply Replace
+                  Apply Replacement
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style>{`

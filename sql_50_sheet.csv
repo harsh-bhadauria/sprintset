@@ -1,0 +1,51 @@
+name,topic,difficulty,link
+Recyclable and Low Fat Products,Select,Easy,https://leetcode.com/problems/recyclable-and-low-fat-products/
+Find Customer Referee,Select,Easy,https://leetcode.com/problems/find-customer-referee/
+Big Countries,Select,Easy,https://leetcode.com/problems/big-countries/
+Article Views I,Select,Easy,https://leetcode.com/problems/article-views-i/
+Invalid Tweets,Select,Easy,https://leetcode.com/problems/invalid-tweets/
+Replace Employee ID With The Unique Identifier,Basic Joins,Easy,https://leetcode.com/problems/replace-employee-id-with-the-unique-identifier/
+Product Sales Analysis I,Basic Joins,Easy,https://leetcode.com/problems/product-sales-analysis-i/
+Customer Who Visited but Did Not Make Any Transactions,Basic Joins,Easy,https://leetcode.com/problems/customer-who-visited-but-did-not-make-any-transactions/
+Rising Temperature,Basic Joins,Easy,https://leetcode.com/problems/rising-temperature/
+Average Time of Process per Machine,Basic Joins,Easy,https://leetcode.com/problems/average-time-of-process-per-machine/
+Employee Bonus,Basic Joins,Easy,https://leetcode.com/problems/employee-bonus/
+Students and Examinations,Basic Joins,Easy,https://leetcode.com/problems/students-and-examinations/
+Managers with at Least 5 Direct Reports,Basic Joins,Medium,https://leetcode.com/problems/managers-with-at-least-5-direct-reports/
+Confirmation Rate,Basic Joins,Medium,https://leetcode.com/problems/confirmation-rate/
+Not Boring Movies,Aggregation,Easy,https://leetcode.com/problems/not-boring-movies/
+Average Selling Price,Aggregation,Easy,https://leetcode.com/problems/average-selling-price/
+Project Employees I,Aggregation,Easy,https://leetcode.com/problems/project-employees-i/
+Percentage of Users Attended a Contest,Aggregation,Easy,https://leetcode.com/problems/percentage-of-users-attended-a-contest/
+Queries Quality and Percentage,Aggregation,Easy,https://leetcode.com/problems/queries-quality-and-percentage/
+Monthly Transactions I,Aggregation,Medium,https://leetcode.com/problems/monthly-transactions-i/
+Immediate Food Delivery II,Aggregation,Medium,https://leetcode.com/problems/immediate-food-delivery-ii/
+Game Play Analysis IV,Aggregation,Medium,https://leetcode.com/problems/game-play-analysis-iv/
+Number of Unique Subjects Taught by Each Teacher,Grouping,Easy,https://leetcode.com/problems/number-of-unique-subjects-taught-by-each-teacher/
+User Activity for the Past 30 Days I,Grouping,Easy,https://leetcode.com/problems/user-activity-for-the-past-30-days-i/
+Product Sales Analysis III,Grouping,Medium,https://leetcode.com/problems/product-sales-analysis-iii/
+Classes More Than 5 Students,Grouping,Easy,https://leetcode.com/problems/classes-more-than-5-students/
+Find Followers Count,Grouping,Easy,https://leetcode.com/problems/find-followers-count/
+Biggest Single Number,Grouping,Easy,https://leetcode.com/problems/biggest-single-number/
+Customers Who Bought All Products,Grouping,Medium,https://leetcode.com/problems/customers-who-bought-all-products/
+The Number of Employees Which Report to Each Employee,Advanced Joins,Easy,https://leetcode.com/problems/the-number-of-employees-which-report-to-each-employee/
+Primary Department for Each Employee,Advanced Joins,Easy,https://leetcode.com/problems/primary-department-for-each-employee/
+Triangle Judgement,Advanced Joins,Easy,https://leetcode.com/problems/triangle-judgement/
+Consecutive Numbers,Advanced Joins,Medium,https://leetcode.com/problems/consecutive-numbers/
+Product Price at a Given Date,Advanced Joins,Medium,https://leetcode.com/problems/product-price-at-a-given-date/
+Last Person to Fit in the Bus,Advanced Joins,Medium,https://leetcode.com/problems/last-person-to-fit-in-the-bus/
+Count Salary Categories,Advanced Joins,Medium,https://leetcode.com/problems/count-salary-categories/
+Employees Whose Manager Left the Company,Subqueries,Easy,https://leetcode.com/problems/employees-whose-manager-left-the-company/
+Exchange Seats,Subqueries,Medium,https://leetcode.com/problems/exchange-seats/
+Movie Rating,Subqueries,Medium,https://leetcode.com/problems/movie-rating/
+Restaurant Growth,Subqueries,Medium,https://leetcode.com/problems/restaurant-growth/
+Friend Requests II: Who Has the Most Friends,Subqueries,Medium,https://leetcode.com/problems/friend-requests-ii-who-has-the-most-friends/
+Investments in 2016,Subqueries,Medium,https://leetcode.com/problems/investments-in-2016/
+Department Top Three Salaries,Subqueries,Hard,https://leetcode.com/problems/department-top-three-salaries/
+Fix Names in a Table,Strings & Regex,Easy,https://leetcode.com/problems/fix-names-in-a-table/
+Patients With a Condition,Strings & Regex,Easy,https://leetcode.com/problems/patients-with-a-condition/
+Delete Duplicate Emails,Strings & Regex,Easy,https://leetcode.com/problems/delete-duplicate-emails/
+Second Highest Salary,Strings & Regex,Medium,https://leetcode.com/problems/second-highest-salary/
+Group Sold Products By The Date,Strings & Regex,Easy,https://leetcode.com/problems/group-sold-products-by-the-date/
+List the Products Ordered in a Period,Strings & Regex,Easy,https://leetcode.com/problems/list-the-products-ordered-in-a-period/
+Find Users With Valid E-Mails,Strings & Regex,Easy,https://leetcode.com/problems/find-users-with-valid-e-mails/
