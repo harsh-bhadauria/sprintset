@@ -1,5 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Plus, Upload, Download, RotateCcw, Edit2, Trash2, ExternalLink, Filter, X, ArrowLeft, BookOpen, Layers, ChevronRight, FileText } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { 
+  Search, Plus, Upload, Download, RotateCcw, Edit2, Trash2, 
+  ExternalLink, Filter, X, ArrowLeft, BookOpen, Layers, 
+  ChevronRight, MoreVertical, FolderPlus, RefreshCw, AlertTriangle 
+} from 'lucide-react';
 import { parseCSV, exportToCSV } from '../utils/csvHandler';
 
 export const getQuestionSheet = (q) => {
@@ -11,19 +15,36 @@ export const getQuestionSheet = (q) => {
 
 export default function QuestionBankManager({
   questions,
-  questionStates,
+  questionStates = {},
   onUpdateQuestions,
+  onUpdateQuestionStates,
   onResetToDefault
 }) {
   // Navigation State: null (Sheets grid) | 'ALL' (Flat view) | '<sheetName>'
   const [selectedSheetView, setSelectedSheetView] = useState(null);
+
+  // Custom empty sheets list stored in localStorage
+  const [customSheets, setCustomSheets] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sprintset_custom_sheets_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  // Kebab menu dropdown states
+  const [isGlobalMenuOpen, setIsGlobalMenuOpen] = useState(false);
+  const [isSheetMenuOpen, setIsSheetMenuOpen] = useState(false);
+  const globalMenuRef = useRef(null);
+  const sheetMenuRef = useRef(null);
 
   // Filter States inside table view
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('ALL');
   const [selectedDiff, setSelectedDiff] = useState('ALL');
 
-  // Modal State for Add / Edit
+  // Modal State for Add / Edit Question
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
 
@@ -36,9 +57,44 @@ export default function QuestionBankManager({
     link: ''
   });
 
-  // Group questions by sheet (with fallback to 'Default')
+  const [isCreatingNewSheetInModal, setIsCreatingNewSheetInModal] = useState(false);
+  const [newSheetNameInput, setNewSheetNameInput] = useState('');
+
+  // Close menus on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (globalMenuRef.current && !globalMenuRef.current.contains(e.target)) {
+        setIsGlobalMenuOpen(false);
+      }
+      if (sheetMenuRef.current && !sheetMenuRef.current.contains(e.target)) {
+        setIsSheetMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  // Save customSheets to localStorage
+  const saveCustomSheets = (sheetsList) => {
+    setCustomSheets(sheetsList);
+    try {
+      localStorage.setItem('sprintset_custom_sheets_v1', JSON.stringify(sheetsList));
+    } catch (err) {
+      console.error('Error saving custom sheets:', err);
+    }
+  };
+
+  // Group questions by sheet (including empty customSheets)
   const sheetGroups = useMemo(() => {
     const map = new Map();
+
+    // Initialize custom sheets so empty ones render
+    customSheets.forEach(s => {
+      if (s && s.trim() !== '') {
+        map.set(s.trim(), []);
+      }
+    });
+
     questions.forEach(q => {
       const sheetName = getQuestionSheet(q);
       if (!map.has(sheetName)) {
@@ -47,7 +103,7 @@ export default function QuestionBankManager({
       map.get(sheetName).push(q);
     });
     return map;
-  }, [questions]);
+  }, [questions, customSheets]);
 
   // Priority order for sheet cards
   const orderedSheetNames = useMemo(() => {
@@ -66,7 +122,7 @@ export default function QuestionBankManager({
     });
   }, [sheetGroups]);
 
-  // Scoped questions for the current view
+  // Scoped questions for current view
   const scopedQuestions = useMemo(() => {
     if (!selectedSheetView) return [];
     if (selectedSheetView === 'ALL') {
@@ -104,8 +160,8 @@ export default function QuestionBankManager({
     return { easy, medium, hard, attempted };
   };
 
-  // CSV Import handler
-  const handleCSVImport = async (e) => {
+  // --- CSV Import Handlers ---
+  const handleGlobalCSVImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
@@ -114,8 +170,6 @@ export default function QuestionBankManager({
         alert('No valid question rows found in CSV.');
         return;
       }
-
-      // Merge imported questions with existing by ID
       const existingIds = new Set(questions.map(q => q.id));
       const newQuestions = [...questions];
       imported.forEach(q => {
@@ -129,10 +183,51 @@ export default function QuestionBankManager({
       });
 
       onUpdateQuestions(newQuestions);
-      alert(`Successfully imported ${imported.length} questions!`);
+      setIsGlobalMenuOpen(false);
+      alert(`Successfully imported ${imported.length} questions across sheets!`);
     } catch (err) {
       alert('Error parsing CSV file: ' + err.message);
     }
+  };
+
+  const handleScopedCSVImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedSheetView || selectedSheetView === 'ALL') return;
+    try {
+      const imported = await parseCSV(file);
+      if (imported.length === 0) {
+        alert('No valid question rows found in CSV.');
+        return;
+      }
+      const existingIds = new Set(questions.map(q => q.id));
+      const newQuestions = [...questions];
+      imported.forEach(q => {
+        const normalized = {
+          ...q,
+          sheet: selectedSheetView // Override sheet to current scope
+        };
+        if (!existingIds.has(q.id)) {
+          newQuestions.push(normalized);
+        }
+      });
+
+      onUpdateQuestions(newQuestions);
+      setIsSheetMenuOpen(false);
+      alert(`Successfully imported ${imported.length} questions into "${selectedSheetView}"!`);
+    } catch (err) {
+      alert('Error parsing CSV file: ' + err.message);
+    }
+  };
+
+  // --- Contextual Actions ---
+  const handleAddSheet = () => {
+    const name = window.prompt('Enter new sheet name:');
+    if (!name || !name.trim()) return;
+    const cleanName = name.trim();
+    if (!customSheets.includes(cleanName)) {
+      saveCustomSheets([...customSheets, cleanName]);
+    }
+    setSelectedSheetView(cleanName);
   };
 
   const handleOpenAdd = () => {
@@ -146,6 +241,8 @@ export default function QuestionBankManager({
       sheet: defaultSheet,
       link: ''
     });
+    setIsCreatingNewSheetInModal(false);
+    setNewSheetNameInput('');
     setIsModalOpen(true);
   };
 
@@ -155,15 +252,67 @@ export default function QuestionBankManager({
       ...question,
       sheet: getQuestionSheet(question)
     });
+    setIsCreatingNewSheetInModal(false);
+    setNewSheetNameInput('');
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDeleteQuestion = (id) => {
     if (window.confirm('Are you sure you want to delete this question?')) {
       onUpdateQuestions(questions.filter(q => q.id !== id));
     }
   };
 
+  // Delete Sheet: Reassigns questions to 'Default' sheet!
+  const handleDeleteSheet = (sheetToDelete) => {
+    if (!sheetToDelete || sheetToDelete === 'Default' || sheetToDelete === 'ALL') return;
+    const sheetQuestions = sheetGroups.get(sheetToDelete) || [];
+    const count = sheetQuestions.length;
+
+    const confirmMsg = `Deleting the sheet "${sheetToDelete}" will move its ${count} question${count === 1 ? '' : 's'} to the "Default" sheet.\n\nAre you sure you want to delete this sheet?`;
+
+    if (window.confirm(confirmMsg)) {
+      // Reassign questions to 'Default'
+      const updatedQuestions = questions.map(q => {
+        if (getQuestionSheet(q) === sheetToDelete) {
+          return { ...q, sheet: 'Default' };
+        }
+        return q;
+      });
+
+      // Remove from customSheets
+      saveCustomSheets(customSheets.filter(s => s !== sheetToDelete));
+
+      onUpdateQuestions(updatedQuestions);
+      setSelectedSheetView(null);
+      setIsSheetMenuOpen(false);
+    }
+  };
+
+  // Reset Sheet History
+  const handleResetSheetHistory = (sheetToReset) => {
+    if (!sheetToReset) return;
+    const sheetQuestions = sheetToReset === 'ALL' ? questions : (sheetGroups.get(sheetToReset) || []);
+    const count = sheetQuestions.length;
+
+    const confirmMsg = `Reset practice history (attempts & confidence) for all ${count} question${count === 1 ? '' : 's'} in "${sheetToReset}"?`;
+
+    if (window.confirm(confirmMsg)) {
+      const targetIds = new Set(sheetQuestions.map(q => q.id));
+      const nextStates = { ...questionStates };
+      targetIds.forEach(id => {
+        delete nextStates[id];
+      });
+
+      if (onUpdateQuestionStates) {
+        onUpdateQuestionStates(nextStates);
+      }
+      setIsSheetMenuOpen(false);
+      alert(`Cleared practice history for "${sheetToReset}".`);
+    }
+  };
+
+  // Form Save
   const handleSaveForm = (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
@@ -171,9 +320,21 @@ export default function QuestionBankManager({
       return;
     }
 
+    let finalSheet = formData.sheet;
+    if (isCreatingNewSheetInModal) {
+      if (!newSheetNameInput.trim()) {
+        alert('Please enter a name for the new sheet.');
+        return;
+      }
+      finalSheet = newSheetNameInput.trim();
+      if (!customSheets.includes(finalSheet)) {
+        saveCustomSheets([...customSheets, finalSheet]);
+      }
+    }
+
     const cleanedFormData = {
       ...formData,
-      sheet: (formData.sheet && formData.sheet.trim()) || 'Default'
+      sheet: (finalSheet && finalSheet.trim()) || 'Default'
     };
 
     if (editingQuestion) {
@@ -205,43 +366,66 @@ export default function QuestionBankManager({
             </div>
 
             <div className="bank-header-actions">
-              <button className="btn btn-primary" onClick={handleOpenAdd}>
-                <Plus size={16} />
-                <span>Add Question</span>
+              {/* Contextual Primary Action on Main Screen: Add Sheet */}
+              <button className="btn btn-primary" onClick={handleAddSheet}>
+                <FolderPlus size={16} />
+                <span>Add Sheet</span>
               </button>
 
-              <label className="btn btn-secondary cursor-pointer" title="Import CSV File">
-                <Upload size={16} />
-                <span>Import CSV</span>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleCSVImport}
-                  style={{ display: 'none' }}
-                />
-              </label>
+              {/* Kebab Dropdown Menu for Global Actions */}
+              <div className="kebab-menu-wrapper" ref={globalMenuRef}>
+                <button
+                  type="button"
+                  className="btn btn-secondary kebab-trigger-btn"
+                  onClick={() => setIsGlobalMenuOpen(!isGlobalMenuOpen)}
+                  title="More Bank Actions"
+                >
+                  <MoreVertical size={18} />
+                </button>
 
-              <button
-                className="btn btn-secondary"
-                onClick={() => exportToCSV(questions)}
-                title="Export Question Bank to CSV"
-              >
-                <Download size={16} />
-                <span>Export CSV</span>
-              </button>
+                {isGlobalMenuOpen && (
+                  <div className="kebab-dropdown-menu">
+                    <label className="menu-item-btn cursor-pointer">
+                      <Upload size={15} />
+                      <span>Import CSV (Global)</span>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={handleGlobalCSVImport}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
 
-              <button
-                className="btn btn-outline btn-reset"
-                onClick={() => {
-                  if (window.confirm('Reset question bank back to starter set of 85+ questions?')) {
-                    onResetToDefault();
-                  }
-                }}
-                title="Reset Question Bank to Defaults"
-              >
-                <RotateCcw size={16} />
-                <span>Reset Bank</span>
-              </button>
+                    <button
+                      type="button"
+                      className="menu-item-btn"
+                      onClick={() => {
+                        exportToCSV(questions, 'sprintset_all_questions.csv');
+                        setIsGlobalMenuOpen(false);
+                      }}
+                    >
+                      <Download size={15} />
+                      <span>Export All (CSV)</span>
+                    </button>
+
+                    <div className="dropdown-divider" />
+
+                    <button
+                      type="button"
+                      className="menu-item-btn item-danger"
+                      onClick={() => {
+                        setIsGlobalMenuOpen(false);
+                        if (window.confirm('Reset question bank back to default starter set?')) {
+                          onResetToDefault();
+                        }
+                      }}
+                    >
+                      <RotateCcw size={15} />
+                      <span>Reset Bank</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -354,43 +538,102 @@ export default function QuestionBankManager({
             </div>
 
             <div className="bank-header-actions">
+              {/* Contextual Primary Action inside a Sheet: Add Question */}
               <button className="btn btn-primary" onClick={handleOpenAdd}>
                 <Plus size={16} />
                 <span>Add Question</span>
               </button>
 
-              <label className="btn btn-secondary cursor-pointer" title="Import CSV File">
-                <Upload size={16} />
-                <span>Import CSV</span>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleCSVImport}
-                  style={{ display: 'none' }}
-                />
-              </label>
+              {/* Per-Sheet Kebab Actions Menu */}
+              <div className="kebab-menu-wrapper" ref={sheetMenuRef}>
+                <button
+                  type="button"
+                  className="btn btn-secondary kebab-trigger-btn"
+                  onClick={() => setIsSheetMenuOpen(!isSheetMenuOpen)}
+                  title="Sheet Actions"
+                >
+                  <MoreVertical size={18} />
+                </button>
 
-              <button
-                className="btn btn-secondary"
-                onClick={() => exportToCSV(questions)}
-                title="Export Question Bank to CSV"
-              >
-                <Download size={16} />
-                <span>Export CSV</span>
-              </button>
+                {isSheetMenuOpen && (
+                  <div className="kebab-dropdown-menu">
+                    {selectedSheetView === 'ALL' ? (
+                      <>
+                        <label className="menu-item-btn cursor-pointer">
+                          <Upload size={15} />
+                          <span>Import CSV (Global)</span>
+                          <input
+                            type="file"
+                            accept=".csv"
+                            onChange={handleGlobalCSVImport}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
 
-              <button
-                className="btn btn-outline btn-reset"
-                onClick={() => {
-                  if (window.confirm('Reset question bank back to starter set of 85+ questions?')) {
-                    onResetToDefault();
-                  }
-                }}
-                title="Reset Question Bank to Defaults"
-              >
-                <RotateCcw size={16} />
-                <span>Reset Bank</span>
-              </button>
+                        <button
+                          type="button"
+                          className="menu-item-btn"
+                          onClick={() => {
+                            exportToCSV(questions, 'sprintset_all_questions.csv');
+                            setIsSheetMenuOpen(false);
+                          }}
+                        >
+                          <Download size={15} />
+                          <span>Export All (CSV)</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <label className="menu-item-btn cursor-pointer">
+                          <Upload size={15} />
+                          <span>Import CSV (This Sheet)</span>
+                          <input
+                            type="file"
+                            accept=".csv"
+                            onChange={handleScopedCSVImport}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          className="menu-item-btn"
+                          onClick={() => {
+                            const filename = `sprintset_${selectedSheetView.toLowerCase().replace(/\s+/g, '_')}_questions.csv`;
+                            exportToCSV(scopedQuestions, filename);
+                            setIsSheetMenuOpen(false);
+                          }}
+                        >
+                          <Download size={15} />
+                          <span>Export Sheet (CSV)</span>
+                        </button>
+
+                        <div className="dropdown-divider" />
+
+                        <button
+                          type="button"
+                          className="menu-item-btn"
+                          onClick={() => handleResetSheetHistory(selectedSheetView)}
+                        >
+                          <RefreshCw size={15} />
+                          <span>Reset Sheet History</span>
+                        </button>
+
+                        {selectedSheetView !== 'Default' && (
+                          <button
+                            type="button"
+                            className="menu-item-btn item-danger"
+                            onClick={() => handleDeleteSheet(selectedSheetView)}
+                          >
+                            <Trash2 size={15} />
+                            <span>Delete Sheet</span>
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -442,17 +685,17 @@ export default function QuestionBankManager({
             </div>
           </div>
 
-          {/* Question Table */}
+          {/* Question Table — Single Line Row Layout with Ellipsis */}
           <div className="table-wrapper">
             <table className="bank-table">
               <thead>
                 <tr>
-                  <th>Question Name</th>
-                  <th>Topic</th>
-                  <th>Difficulty</th>
-                  <th>Sheet</th>
-                  <th>History State</th>
-                  <th>Actions</th>
+                  <th className="col-name">Question Name</th>
+                  <th className="col-topic">Topic</th>
+                  <th className="col-diff">Difficulty</th>
+                  <th className="col-sheet">Sheet</th>
+                  <th className="col-history">History State</th>
+                  <th className="col-actions">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -462,9 +705,9 @@ export default function QuestionBankManager({
                     const sheetTag = getQuestionSheet(q);
                     return (
                       <tr key={q.id}>
-                        <td className="font-semibold">
+                        <td className="col-name font-semibold" title={q.name}>
                           <div className="q-name-cell">
-                            <span>{q.name}</span>
+                            <span className="q-name-text">{q.name}</span>
                             {q.link && (
                               <a
                                 href={q.link}
@@ -473,18 +716,20 @@ export default function QuestionBankManager({
                                 className="link-icon"
                                 title="Open LeetCode problem page"
                               >
-                                <ExternalLink size={14} />
+                                <ExternalLink size={13} />
                               </a>
                             )}
                           </div>
                         </td>
-                        <td><span className="badge badge-topic">{q.topic}</span></td>
-                        <td>
+                        <td className="col-topic">
+                          <span className="badge badge-topic" title={q.topic}>{q.topic}</span>
+                        </td>
+                        <td className="col-diff">
                           <span className={`badge badge-${q.difficulty.toLowerCase()}`}>
                             {q.difficulty}
                           </span>
                         </td>
-                        <td>
+                        <td className="col-sheet">
                           <button
                             type="button"
                             className="sheet-tag-btn"
@@ -497,10 +742,10 @@ export default function QuestionBankManager({
                             {sheetTag}
                           </button>
                         </td>
-                        <td>
+                        <td className="col-history">
                           {st ? (
                             <div className="history-pill">
-                              <span>Times seen: <strong>{st.timesSeen || 0}</strong></span>
+                              <span>Seen: <strong>{st.timesSeen || 0}</strong></span>
                               {st.confidence && (
                                 <span className={`conf-chip conf-${st.confidence}`}>
                                   {st.confidence}
@@ -511,21 +756,21 @@ export default function QuestionBankManager({
                             <span className="text-muted text-xs">Never attempted</span>
                           )}
                         </td>
-                        <td>
+                        <td className="col-actions">
                           <div className="row-actions">
                             <button
                               className="icon-action-btn"
                               onClick={() => handleOpenEdit(q)}
                               title="Edit Question"
                             >
-                              <Edit2 size={16} />
+                              <Edit2 size={15} />
                             </button>
                             <button
                               className="icon-action-btn text-danger"
-                              onClick={() => handleDelete(q.id)}
+                              onClick={() => handleDeleteQuestion(q.id)}
                               title="Delete Question"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>
@@ -545,7 +790,7 @@ export default function QuestionBankManager({
         </div>
       )}
 
-      {/* Add / Edit Modal */}
+      {/* Add / Edit Question Modal with Sheet Reassignment Dropdown */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
@@ -598,13 +843,35 @@ export default function QuestionBankManager({
               <div className="form-row">
                 <div className="form-group">
                   <label>Sheet / Collection</label>
-                  <input
-                    type="text"
-                    value={formData.sheet}
-                    onChange={(e) => setFormData({ ...formData, sheet: e.target.value })}
-                    placeholder="e.g. Striver A2Z"
+                  <select
+                    value={isCreatingNewSheetInModal ? '__NEW__' : formData.sheet}
+                    onChange={(e) => {
+                      if (e.target.value === '__NEW__') {
+                        setIsCreatingNewSheetInModal(true);
+                      } else {
+                        setIsCreatingNewSheetInModal(false);
+                        setFormData({ ...formData, sheet: e.target.value });
+                      }
+                    }}
                     className="input-field-full"
-                  />
+                  >
+                    {orderedSheetNames.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                    <option value="__NEW__">+ Create New Sheet...</option>
+                  </select>
+
+                  {isCreatingNewSheetInModal && (
+                    <input
+                      type="text"
+                      required
+                      value={newSheetNameInput}
+                      onChange={(e) => setNewSheetNameInput(e.target.value)}
+                      placeholder="Enter new sheet name..."
+                      className="input-field-full mt-2"
+                      autoFocus
+                    />
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -710,15 +977,82 @@ export default function QuestionBankManager({
         .bank-header-actions {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.65rem;
           flex-wrap: wrap;
         }
 
-        .btn-reset {
-          color: var(--text-muted);
+        /* Kebab Dropdown Menu */
+        .kebab-menu-wrapper {
+          position: relative;
         }
-        .btn-reset:hover {
-          color: var(--amber-main);
+
+        .kebab-trigger-btn {
+          width: 38px;
+          height: 38px;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: var(--radius-md);
+        }
+
+        .kebab-dropdown-menu {
+          position: absolute;
+          right: 0;
+          top: calc(100% + 6px);
+          z-index: 1000;
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+          padding: 0.4rem;
+          min-width: 190px;
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          animation: menuFadeIn 0.15s ease;
+        }
+
+        @keyframes menuFadeIn {
+          from { opacity: 0; transform: translateY(-6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .menu-item-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          padding: 0.55rem 0.75rem;
+          border-radius: var(--radius-sm);
+          background: transparent;
+          border: none;
+          color: var(--text-secondary);
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: pointer;
+          width: 100%;
+          text-align: left;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .menu-item-btn:hover {
+          background: var(--bg-card-hover);
+          color: var(--text-primary);
+        }
+
+        .menu-item-btn.item-danger {
+          color: #ef4444;
+        }
+
+        .menu-item-btn.item-danger:hover {
+          background: rgba(239, 68, 68, 0.12);
+          color: #ef4444;
+        }
+
+        .dropdown-divider {
+          height: 1px;
+          background: var(--border-subtle);
+          margin: 0.25rem 0;
         }
 
         /* Sheets Grid View */
@@ -957,39 +1291,66 @@ export default function QuestionBankManager({
           color: var(--text-primary);
         }
 
+        /* Single-Line Row Table Styling */
         .table-wrapper {
           overflow-x: auto;
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
         }
 
         .bank-table {
           width: 100%;
           border-collapse: collapse;
           font-size: 0.88rem;
+          background: var(--bg-input);
+          table-layout: fixed;
         }
 
         .bank-table th, .bank-table td {
-          padding: 0.75rem 1rem;
+          padding: 0.75rem 0.9rem;
           text-align: left;
           border-bottom: 1px solid var(--border-subtle);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .bank-table th {
+          background: var(--bg-card);
           color: var(--text-muted);
           font-size: 0.75rem;
           text-transform: uppercase;
           font-weight: 700;
         }
 
+        /* Fixed Column Width Allocations */
+        .col-name { width: 34%; }
+        .col-topic { width: 18%; }
+        .col-diff { width: 12%; }
+        .col-sheet { width: 14%; }
+        .col-history { width: 13%; }
+        .col-actions { width: 9%; text-align: right; }
+
         .q-name-cell {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.45rem;
+          overflow: hidden;
+          width: 100%;
+        }
+
+        .q-name-text {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          flex: 1;
         }
 
         .link-icon {
           color: var(--accent-blue);
           display: inline-flex;
           align-items: center;
+          flex-shrink: 0;
         }
 
         .sheet-tag-btn {
@@ -1002,6 +1363,11 @@ export default function QuestionBankManager({
           color: var(--text-muted);
           cursor: pointer;
           transition: all 0.15s ease;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          display: inline-block;
         }
 
         .sheet-tag-btn:hover {
@@ -1013,7 +1379,7 @@ export default function QuestionBankManager({
         .history-pill {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.4rem;
           font-size: 0.78rem;
         }
 
@@ -1032,7 +1398,8 @@ export default function QuestionBankManager({
         .row-actions {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
+          justify-content: flex-end;
+          gap: 0.35rem;
         }
 
         .icon-action-btn {
@@ -1097,6 +1464,8 @@ export default function QuestionBankManager({
         .input-field-full:focus {
           border-color: var(--amber-main);
         }
+
+        .mt-2 { margin-top: 0.5rem; }
 
         .form-actions {
           display: flex;
