@@ -21,7 +21,7 @@ export function parseCSV(csvStringOrFile) {
             name: String(row.name || '').trim(),
             topic: String(row.topic || 'General').trim(),
             difficulty: normalizeDifficulty(row.difficulty),
-            sheet: String(row.sheet || 'Custom').trim(),
+            sheet: (row.sheet && String(row.sheet).trim()) || 'Default',
             link: String(row.link || '').trim()
           }));
 
