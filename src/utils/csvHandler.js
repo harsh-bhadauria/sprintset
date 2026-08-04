@@ -15,9 +15,9 @@ export function parseCSV(csvStringOrFile) {
         }
 
         const validQuestions = results.data
-          .filter(row => row.id && row.name)
-          .map(row => ({
-            id: String(row.id).trim(),
+          .filter(row => row.name && String(row.name).trim() !== '')
+          .map((row, idx) => ({
+            id: row.id ? String(row.id).trim() : `q-${Date.now()}-${idx}`,
             name: String(row.name || '').trim(),
             topic: String(row.topic || 'General').trim(),
             difficulty: normalizeDifficulty(row.difficulty),

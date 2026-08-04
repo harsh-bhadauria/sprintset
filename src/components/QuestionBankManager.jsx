@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Search, Plus, Upload, Download, RotateCcw, Edit2, Trash2, 
-  ExternalLink, Filter, X, ArrowLeft, BookOpen, Layers, 
-  ChevronRight, MoreVertical, FolderPlus, RefreshCw, AlertTriangle 
+  Filter, X, ArrowLeft, BookOpen, Layers, 
+  ChevronRight, MoreVertical, FolderPlus, RefreshCw, AlertTriangle, FileText
 } from 'lucide-react';
 import { parseCSV, exportToCSV } from '../utils/csvHandler';
 import { formatTopicName } from './SessionSummary';
@@ -12,6 +12,14 @@ export const getQuestionSheet = (q) => {
     return String(q.sheet).trim();
   }
   return 'Default';
+};
+
+export const getQuestionLink = (q) => {
+  if (q && q.link && String(q.link).trim() !== '') {
+    return String(q.link).trim();
+  }
+  const query = encodeURIComponent(`${q ? q.name : ''} leetcode`);
+  return `https://www.google.com/search?q=${query}`;
 };
 
 export default function QuestionBankManager({
@@ -45,8 +53,14 @@ export default function QuestionBankManager({
   const [selectedTopic, setSelectedTopic] = useState('ALL');
   const [selectedDiff, setSelectedDiff] = useState('ALL');
 
+  // Modal State for Add Sheet
+  const [isAddSheetModalOpen, setIsAddSheetModalOpen] = useState(false);
+  const [addSheetNameInput, setAddSheetNameInput] = useState('');
+  const [addSheetCSVFile, setAddSheetCSVFile] = useState(null);
+
   // Modal State for Add / Edit Question
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState('single'); // 'single' | 'batch'
   const [editingQuestion, setEditingQuestion] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -58,6 +72,7 @@ export default function QuestionBankManager({
     link: ''
   });
 
+  const [batchCSVFile, setBatchCSVFile] = useState(null);
   const [isCreatingNewSheetInModal, setIsCreatingNewSheetInModal] = useState(false);
   const [newSheetNameInput, setNewSheetNameInput] = useState('');
 
@@ -89,7 +104,6 @@ export default function QuestionBankManager({
   const sheetGroups = useMemo(() => {
     const map = new Map();
 
-    // Initialize custom sheets so empty ones render
     customSheets.forEach(s => {
       if (s && s.trim() !== '') {
         map.set(s.trim(), []);
@@ -220,17 +234,53 @@ export default function QuestionBankManager({
     }
   };
 
-  // --- Contextual Actions ---
-  const handleAddSheet = () => {
-    const name = window.prompt('Enter new sheet name:');
-    if (!name || !name.trim()) return;
-    const cleanName = name.trim();
+  // --- Add Sheet Flow ---
+  const handleOpenAddSheetModal = () => {
+    setAddSheetNameInput('');
+    setAddSheetCSVFile(null);
+    setIsAddSheetModalOpen(true);
+  };
+
+  const handleCreateSheetSubmit = async (e) => {
+    e.preventDefault();
+    if (!addSheetNameInput.trim()) {
+      alert('Please enter a sheet name.');
+      return;
+    }
+
+    const cleanName = addSheetNameInput.trim();
     if (!customSheets.includes(cleanName)) {
       saveCustomSheets([...customSheets, cleanName]);
     }
+
+    // If a CSV file was provided, parse and import rows directly into this new sheet
+    if (addSheetCSVFile) {
+      try {
+        const imported = await parseCSV(addSheetCSVFile);
+        if (imported.length > 0) {
+          const existingIds = new Set(questions.map(q => q.id));
+          const newQuestions = [...questions];
+          imported.forEach(q => {
+            const normalized = {
+              ...q,
+              sheet: cleanName
+            };
+            if (!existingIds.has(q.id)) {
+              newQuestions.push(normalized);
+            }
+          });
+          onUpdateQuestions(newQuestions);
+        }
+      } catch (err) {
+        alert('Error parsing sheet CSV file: ' + err.message);
+      }
+    }
+
+    setIsAddSheetModalOpen(false);
     setSelectedSheetView(cleanName);
   };
 
+  // --- Add Question Flow ---
   const handleOpenAdd = () => {
     setEditingQuestion(null);
     const defaultSheet = (selectedSheetView && selectedSheetView !== 'ALL') ? selectedSheetView : 'Default';
@@ -242,6 +292,8 @@ export default function QuestionBankManager({
       sheet: defaultSheet,
       link: ''
     });
+    setModalTab('single');
+    setBatchCSVFile(null);
     setIsCreatingNewSheetInModal(false);
     setNewSheetNameInput('');
     setIsModalOpen(true);
@@ -253,6 +305,8 @@ export default function QuestionBankManager({
       ...question,
       sheet: getQuestionSheet(question)
     });
+    setModalTab('single');
+    setBatchCSVFile(null);
     setIsCreatingNewSheetInModal(false);
     setNewSheetNameInput('');
     setIsModalOpen(true);
@@ -273,7 +327,6 @@ export default function QuestionBankManager({
     const confirmMsg = `Deleting the sheet "${sheetToDelete}" will move its ${count} question${count === 1 ? '' : 's'} to the "Default" sheet.\n\nAre you sure you want to delete this sheet?`;
 
     if (window.confirm(confirmMsg)) {
-      // Reassign questions to 'Default'
       const updatedQuestions = questions.map(q => {
         if (getQuestionSheet(q) === sheetToDelete) {
           return { ...q, sheet: 'Default' };
@@ -281,7 +334,6 @@ export default function QuestionBankManager({
         return q;
       });
 
-      // Remove from customSheets
       saveCustomSheets(customSheets.filter(s => s !== sheetToDelete));
 
       onUpdateQuestions(updatedQuestions);
@@ -313,9 +365,57 @@ export default function QuestionBankManager({
     }
   };
 
-  // Form Save
+  // Batch CSV Import submit inside Add Question modal
+  const handleBatchCSVSubmit = async (e) => {
+    e.preventDefault();
+    if (!batchCSVFile) {
+      alert('Please select a CSV file to import.');
+      return;
+    }
+
+    let targetSheet = formData.sheet;
+    if (isCreatingNewSheetInModal && newSheetNameInput.trim()) {
+      targetSheet = newSheetNameInput.trim();
+      if (!customSheets.includes(targetSheet)) {
+        saveCustomSheets([...customSheets, targetSheet]);
+      }
+    }
+
+    try {
+      const imported = await parseCSV(batchCSVFile);
+      if (imported.length === 0) {
+        alert('No valid question rows found in CSV.');
+        return;
+      }
+
+      const existingIds = new Set(questions.map(q => q.id));
+      const newQuestions = [...questions];
+      imported.forEach(q => {
+        const normalized = {
+          ...q,
+          sheet: targetSheet
+        };
+        if (!existingIds.has(q.id)) {
+          newQuestions.push(normalized);
+        }
+      });
+
+      onUpdateQuestions(newQuestions);
+      setIsModalOpen(false);
+      alert(`Successfully imported ${imported.length} questions into "${targetSheet}"!`);
+    } catch (err) {
+      alert('Error parsing CSV file: ' + err.message);
+    }
+  };
+
+  // Form Save for Single Question
   const handleSaveForm = (e) => {
     e.preventDefault();
+    if (modalTab === 'batch') {
+      handleBatchCSVSubmit(e);
+      return;
+    }
+
     if (!formData.name.trim()) {
       alert('Question Name is required.');
       return;
@@ -368,7 +468,7 @@ export default function QuestionBankManager({
 
             <div className="bank-header-actions">
               {/* Contextual Primary Action on Main Screen: Add Sheet */}
-              <button className="btn btn-primary" onClick={handleAddSheet}>
+              <button className="btn btn-primary" onClick={handleOpenAddSheetModal}>
                 <FolderPlus size={16} />
                 <span>Add Sheet</span>
               </button>
@@ -686,7 +786,7 @@ export default function QuestionBankManager({
             </div>
           </div>
 
-          {/* Question Table — Single Line Row Layout with Ellipsis */}
+          {/* Question Table — Single Line Row Layout with Trimmed Redundant Columns */}
           <div className="table-wrapper">
             <table className="bank-table">
               <thead>
@@ -694,8 +794,14 @@ export default function QuestionBankManager({
                   <th className="col-name">Question Name</th>
                   <th className="col-topic">Topic</th>
                   <th className="col-diff">Difficulty</th>
-                  <th className="col-sheet">Sheet</th>
-                  <th className="col-history">History State</th>
+                  
+                  {/* Trimmed Redundant Columns: Show Sheet only in 'ALL' view; Show History State only in specific sheet view */}
+                  {selectedSheetView === 'ALL' ? (
+                    <th className="col-sheet">Sheet</th>
+                  ) : (
+                    <th className="col-history">History State</th>
+                  )}
+
                   <th className="col-actions">Actions</th>
                 </tr>
               </thead>
@@ -706,57 +812,61 @@ export default function QuestionBankManager({
                     const sheetTag = getQuestionSheet(q);
                     return (
                       <tr key={q.id}>
+                        {/* Clickable Question Name Link (Opening in New Tab with Search Fallback, Icon Removed) */}
                         <td className="col-name font-semibold" title={q.name}>
-                          <div className="q-name-cell">
-                            <span className="q-name-text">{q.name}</span>
-                            {q.link && (
-                              <a
-                                href={q.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="link-icon"
-                                title="Open LeetCode problem page"
-                              >
-                                <ExternalLink size={13} />
-                              </a>
-                            )}
-                          </div>
+                          <a
+                            href={getQuestionLink(q)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="q-name-link"
+                            title={q.link ? "Open problem page" : "Search problem on Google"}
+                          >
+                            {q.name}
+                          </a>
                         </td>
+
                         <td className="col-topic">
                           <span className="badge badge-topic" title={q.topic}>{formatTopicName(q.topic)}</span>
                         </td>
+
                         <td className="col-diff">
                           <span className={`badge badge-${q.difficulty.toLowerCase()}`}>
                             {q.difficulty}
                           </span>
                         </td>
-                        <td className="col-sheet">
-                          <button
-                            type="button"
-                            className="sheet-tag-btn"
-                            onClick={() => {
-                              setSelectedSheetView(sheetTag);
-                              setSearchTerm('');
-                            }}
-                            title={`Filter by ${sheetTag}`}
-                          >
-                            {sheetTag}
-                          </button>
-                        </td>
-                        <td className="col-history">
-                          {st ? (
-                            <div className="history-pill">
-                              <span>Seen: <strong>{st.timesSeen || 0}</strong></span>
-                              {st.confidence && (
-                                <span className={`conf-chip conf-${st.confidence}`}>
-                                  {st.confidence}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted text-xs">Never attempted</span>
-                          )}
-                        </td>
+
+                        {/* Conditional Column rendering */}
+                        {selectedSheetView === 'ALL' ? (
+                          <td className="col-sheet">
+                            <button
+                              type="button"
+                              className="sheet-tag-btn"
+                              onClick={() => {
+                                setSelectedSheetView(sheetTag);
+                                setSearchTerm('');
+                              }}
+                              title={`Filter by ${sheetTag}`}
+                            >
+                              {sheetTag}
+                            </button>
+                          </td>
+                        ) : (
+                          <td className="col-history">
+                            {st ? (
+                              <div className="history-pill">
+                                <span>Seen: <strong>{st.timesSeen || 0}</strong></span>
+                                {st.confidence && (
+                                  <span className={`conf-chip conf-${st.confidence}`}>
+                                    {st.confidence}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted text-xs">Never attempted</span>
+                            )}
+                          </td>
+                        )}
+
                         <td className="col-actions">
                           <div className="row-actions">
                             <button
@@ -780,7 +890,7 @@ export default function QuestionBankManager({
                   })
                 ) : (
                   <tr>
-                    <td colSpan="6" className="text-center py-6 text-muted">
+                    <td colSpan="5" className="text-center py-6 text-muted">
                       No questions match your filter criteria in this view.
                     </td>
                   </tr>
@@ -791,115 +901,227 @@ export default function QuestionBankManager({
         </div>
       )}
 
-      {/* Add / Edit Question Modal with Sheet Reassignment Dropdown */}
-      {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+      {/* Modal 1: Add New Sheet (with optional CSV import) */}
+      {isAddSheetModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsAddSheetModalOpen(false)}>
           <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{editingQuestion ? 'Edit Question' : 'Add New Question'}</h3>
-              <button className="close-btn" onClick={() => setIsModalOpen(false)}>
+              <h3>Create New Sheet</h3>
+              <button className="close-btn" onClick={() => setIsAddSheetModalOpen(false)}>
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveForm} className="form-body">
+            <form onSubmit={handleCreateSheetSubmit} className="form-body">
               <div className="form-group">
-                <label>Question Name *</label>
+                <label>Sheet Name *</label>
                 <input
                   type="text"
                   required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. Set Matrix Zeroes"
+                  value={addSheetNameInput}
+                  onChange={(e) => setAddSheetNameInput(e.target.value)}
+                  placeholder="e.g. LeetCode 75, Core CS, SQL Mastery..."
                   className="input-field-full"
+                  autoFocus
                 />
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Topic</label>
-                  <input
-                    type="text"
-                    value={formData.topic}
-                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-                    placeholder="e.g. Arrays & Hashing"
-                    className="input-field-full"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Difficulty</label>
-                  <select
-                    value={formData.difficulty}
-                    onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                    className="input-field-full"
-                  >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Sheet / Collection</label>
-                  <select
-                    value={isCreatingNewSheetInModal ? '__NEW__' : formData.sheet}
-                    onChange={(e) => {
-                      if (e.target.value === '__NEW__') {
-                        setIsCreatingNewSheetInModal(true);
-                      } else {
-                        setIsCreatingNewSheetInModal(false);
-                        setFormData({ ...formData, sheet: e.target.value });
-                      }
-                    }}
-                    className="input-field-full"
-                  >
-                    {orderedSheetNames.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                    <option value="__NEW__">+ Create New Sheet...</option>
-                  </select>
-
-                  {isCreatingNewSheetInModal && (
-                    <input
-                      type="text"
-                      required
-                      value={newSheetNameInput}
-                      onChange={(e) => setNewSheetNameInput(e.target.value)}
-                      placeholder="Enter new sheet name..."
-                      className="input-field-full mt-2"
-                      autoFocus
-                    />
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label>Problem URL / Link</label>
-                  <input
-                    type="url"
-                    value={formData.link}
-                    onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-                    placeholder="https://leetcode.com/problems/..."
-                    className="input-field-full"
-                  />
-                </div>
+              <div className="form-group">
+                <label>Populate with CSV File (Optional)</label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => setAddSheetCSVFile(e.target.files[0] || null)}
+                  className="input-field-full"
+                />
+                <span className="form-subtext">
+                  Upload a CSV file (schema: <code>name, topic, difficulty, link</code>) to populate questions directly into this new sheet.
+                </span>
               </div>
 
               <div className="form-actions">
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => setIsAddSheetModalOpen(false)}
                 >
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Save Question
+                  Create Sheet
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Add / Edit Question (with Tabbed Single vs Batch CSV Import) */}
+      {isModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{editingQuestion ? 'Edit Question' : 'Add Question'}</h3>
+              <button className="close-btn" onClick={() => setIsModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Tab selection inside Add Question modal */}
+            {!editingQuestion && (
+              <div className="modal-tab-pills">
+                <button
+                  type="button"
+                  className={`tab-pill-btn ${modalTab === 'single' ? 'active' : ''}`}
+                  onClick={() => setModalTab('single')}
+                >
+                  Single Question
+                </button>
+                <button
+                  type="button"
+                  className={`tab-pill-btn ${modalTab === 'batch' ? 'active' : ''}`}
+                  onClick={() => setModalTab('batch')}
+                >
+                  Batch Import (CSV)
+                </button>
+              </div>
+            )}
+
+            {modalTab === 'single' ? (
+              <form onSubmit={handleSaveForm} className="form-body">
+                <div className="form-group">
+                  <label>Question Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g. Set Matrix Zeroes"
+                    className="input-field-full"
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Topic</label>
+                    <input
+                      type="text"
+                      value={formData.topic}
+                      onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                      placeholder="e.g. Arrays & Hashing"
+                      className="input-field-full"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Difficulty</label>
+                    <select
+                      value={formData.difficulty}
+                      onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
+                      className="input-field-full"
+                    >
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Hard">Hard</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Sheet / Collection</label>
+                    <select
+                      value={isCreatingNewSheetInModal ? '__NEW__' : formData.sheet}
+                      onChange={(e) => {
+                        if (e.target.value === '__NEW__') {
+                          setIsCreatingNewSheetInModal(true);
+                        } else {
+                          setIsCreatingNewSheetInModal(false);
+                          setFormData({ ...formData, sheet: e.target.value });
+                        }
+                      }}
+                      className="input-field-full"
+                    >
+                      {orderedSheetNames.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                      <option value="__NEW__">+ Create New Sheet...</option>
+                    </select>
+
+                    {isCreatingNewSheetInModal && (
+                      <input
+                        type="text"
+                        required
+                        value={newSheetNameInput}
+                        onChange={(e) => setNewSheetNameInput(e.target.value)}
+                        placeholder="Enter new sheet name..."
+                        className="input-field-full mt-2"
+                        autoFocus
+                      />
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Problem URL / Link</label>
+                    <input
+                      type="url"
+                      value={formData.link}
+                      onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                      placeholder="https://leetcode.com/problems/..."
+                      className="input-field-full"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Save Question
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* Batch CSV Import Tab */
+              <form onSubmit={handleBatchCSVSubmit} className="form-body">
+                <div className="destination-badge-box">
+                  <span className="text-muted font-semibold">Destination Sheet:</span>
+                  <strong className="text-amber">{formData.sheet}</strong>
+                </div>
+
+                <div className="form-group">
+                  <label>Select CSV File *</label>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    required
+                    onChange={(e) => setBatchCSVFile(e.target.files[0] || null)}
+                    className="input-field-full"
+                  />
+                  <span className="form-subtext">
+                    Schema required: <code>name, topic, difficulty, link</code>. All rows will be imported into <strong>{formData.sheet}</strong>.
+                  </span>
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={!batchCSVFile}>
+                    Import into {formData.sheet}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -1325,33 +1547,29 @@ export default function QuestionBankManager({
         }
 
         /* Fixed Column Width Allocations */
-        .col-name { width: 34%; }
-        .col-topic { width: 18%; }
-        .col-diff { width: 12%; }
-        .col-sheet { width: 14%; }
-        .col-history { width: 13%; }
-        .col-actions { width: 9%; text-align: right; }
+        .col-name { width: 38%; }
+        .col-topic { width: 22%; }
+        .col-diff { width: 14%; }
+        .col-sheet { width: 16%; }
+        .col-history { width: 16%; }
+        .col-actions { width: 10%; text-align: right; }
 
-        .q-name-cell {
-          display: flex;
-          align-items: center;
-          gap: 0.45rem;
-          overflow: hidden;
-          width: 100%;
-        }
-
-        .q-name-text {
+        /* Clickable Question Name Link */
+        .q-name-link {
+          color: var(--text-primary);
+          text-decoration: none;
+          font-weight: 600;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          flex: 1;
+          display: inline-block;
+          max-width: 100%;
+          transition: color 0.15s ease;
         }
 
-        .link-icon {
-          color: var(--accent-blue);
-          display: inline-flex;
-          align-items: center;
-          flex-shrink: 0;
+        .q-name-link:hover {
+          color: var(--amber-main);
+          text-decoration: underline;
         }
 
         .sheet-tag-btn {
@@ -1420,10 +1638,65 @@ export default function QuestionBankManager({
           background: rgba(239, 68, 68, 0.15);
         }
 
+        /* Modal & Tab Pills */
         .modal-card {
           max-width: 540px;
           width: 100%;
           padding: 2rem;
+        }
+
+        .modal-tab-pills {
+          display: flex;
+          gap: 0.5rem;
+          background: var(--bg-input);
+          padding: 0.3rem;
+          border-radius: var(--radius-md);
+          margin-top: 0.85rem;
+        }
+
+        .tab-pill-btn {
+          flex: 1;
+          padding: 0.4rem 0.8rem;
+          border: none;
+          border-radius: var(--radius-sm);
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 0.85rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .tab-pill-btn.active {
+          background: var(--bg-card);
+          color: var(--amber-main);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .destination-badge-box {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: rgba(249, 115, 22, 0.1);
+          border: 1px solid rgba(249, 115, 22, 0.25);
+          padding: 0.6rem 0.85rem;
+          border-radius: var(--radius-md);
+          font-size: 0.85rem;
+        }
+
+        .form-subtext {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          line-height: 1.4;
+          display: block;
+          margin-top: 0.35rem;
+        }
+
+        .form-subtext code {
+          background: var(--bg-card);
+          padding: 0.1rem 0.35rem;
+          border-radius: 3px;
+          color: var(--amber-main);
         }
 
         .form-body {
