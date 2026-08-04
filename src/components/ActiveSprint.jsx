@@ -700,8 +700,8 @@ export default function ActiveSprint({
         }
 
         .pts-pill-styled {
-          background: rgba(249, 115, 22, 0.1);
-          border-color: rgba(249, 115, 22, 0.3);
+          background: rgba(var(--accent-rgb), 0.1);
+          border-color: rgba(var(--accent-rgb), 0.3);
         }
 
         .counter-tween-pop {

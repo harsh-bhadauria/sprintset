@@ -434,8 +434,8 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
           width: 44px;
           height: 44px;
           border-radius: var(--radius-md);
-          background: rgba(249, 115, 22, 0.12);
-          border: 1px solid rgba(249, 115, 22, 0.25);
+          background: rgba(var(--accent-rgb), 0.12);
+          border: 1px solid rgba(var(--accent-rgb), 0.25);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -514,8 +514,8 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
 
         .square-preset-card.selected {
           border-color: var(--amber-main);
-          background: rgba(249, 115, 22, 0.12);
-          box-shadow: 0 0 20px rgba(249, 115, 22, 0.2);
+          background: rgba(var(--accent-rgb), 0.12);
+          box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.2);
         }
 
         .preset-icon-container {
@@ -569,8 +569,8 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
           font-size: 0.78rem;
           color: var(--amber-main);
           font-weight: 600;
-          background: rgba(249, 115, 22, 0.12);
-          border: 1px solid rgba(249, 115, 22, 0.25);
+          background: rgba(var(--accent-rgb), 0.12);
+          border: 1px solid rgba(var(--accent-rgb), 0.25);
           padding: 0.25rem 0.75rem;
           border-radius: var(--radius-full);
         }

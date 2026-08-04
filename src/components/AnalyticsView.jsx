@@ -400,7 +400,7 @@ export default function AnalyticsView({ sessions, questionStates, questions, tod
           flex-shrink: 0;
         }
 
-        .icon-amber { background: rgba(249, 115, 22, 0.12); color: var(--amber-main); border: 1px solid rgba(249, 115, 22, 0.25); }
+        .icon-amber { background: rgba(var(--accent-rgb), 0.12); color: var(--amber-main); border: 1px solid rgba(var(--accent-rgb), 0.25); }
         .icon-blue { background: rgba(59, 130, 246, 0.12); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.25); }
         .icon-easy { background: var(--easy-bg); color: var(--easy-color); border: 1px solid rgba(16, 185, 129, 0.25); }
         .icon-gold { background: rgba(251, 191, 36, 0.12); color: var(--gold-accent); border: 1px solid rgba(251, 191, 36, 0.25); }

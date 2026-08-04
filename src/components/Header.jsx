@@ -15,9 +15,7 @@ export default function Header({
       <div className="header-content">
         {/* Brand Logo with Dynamic Chroma Shift Animated Triangle */}
         <div className="brand-group" onClick={() => onSelectTab('sprint')}>
-          <div className="brand-icon-wrapper">
-            <Triangle className="brand-icon" size={18} fill="currentColor" />
-          </div>
+          <Triangle className="brand-icon" size={24} strokeWidth={1.75} />
           <div className="brand-text">
             <span className="brand-name">Sprintset</span>
             <span className="brand-tagline">DSA Focus Sprint</span>
@@ -105,36 +103,15 @@ export default function Header({
           user-select: none;
         }
 
-        @keyframes chromaShift {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
+        .brand-icon {
+          color: var(--amber-main);
+          flex-shrink: 0;
+          transition: transform 0.2s ease, filter 0.2s ease;
         }
 
-        .brand-icon-wrapper {
-          width: 38px;
-          height: 38px;
-          border-radius: var(--radius-md);
-          background: linear-gradient(135deg, #f97316 0%, #ec4899 25%, #8b5cf6 50%, #3b82f6 75%, #f97316 100%);
-          background-size: 300% 300%;
-          animation: chromaShift 8s ease infinite;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #ffffff;
-          box-shadow: 0 0 18px rgba(249, 115, 22, 0.45);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .brand-group:hover .brand-icon-wrapper {
-          transform: scale(1.08) rotate(6deg);
-          box-shadow: 0 0 24px rgba(236, 72, 153, 0.6);
+        .brand-group:hover .brand-icon {
+          transform: scale(1.1);
+          filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.6));
         }
 
         .brand-text {

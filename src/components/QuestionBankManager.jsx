@@ -1429,9 +1429,9 @@ export default function QuestionBankManager({
           font-weight: 700;
           padding: 0.2rem 0.6rem;
           border-radius: var(--radius-full);
-          background: rgba(249, 115, 22, 0.15);
+          background: rgba(var(--accent-rgb), 0.15);
           color: var(--amber-main);
-          border: 1px solid rgba(249, 115, 22, 0.3);
+          border: 1px solid rgba(var(--accent-rgb), 0.3);
         }
 
         .bank-subtitle {
@@ -1555,20 +1555,20 @@ export default function QuestionBankManager({
         }
 
         .sheet-card:hover {
-          border-color: rgba(249, 115, 22, 0.4);
+          border-color: rgba(var(--accent-rgb), 0.4);
           transform: translateY(-2px);
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
           background: var(--bg-card-hover);
         }
 
         .card-all-questions {
-          background: linear-gradient(135deg, rgba(249, 115, 22, 0.08) 0%, rgba(249, 115, 22, 0.02) 100%);
-          border-color: rgba(249, 115, 22, 0.3);
+          background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, rgba(var(--accent-rgb), 0.02) 100%);
+          border-color: rgba(var(--accent-rgb), 0.3);
         }
 
         .card-all-questions:hover {
           border-color: var(--amber-main);
-          box-shadow: 0 8px 28px rgba(249, 115, 22, 0.2);
+          box-shadow: 0 8px 28px rgba(var(--accent-rgb), 0.2);
         }
 
         .sheet-card-header {
@@ -1590,8 +1590,8 @@ export default function QuestionBankManager({
         }
 
         .icon-all-badge {
-          background: rgba(249, 115, 22, 0.15);
-          border-color: rgba(249, 115, 22, 0.35);
+          background: rgba(var(--accent-rgb), 0.15);
+          border-color: rgba(var(--accent-rgb), 0.35);
           color: var(--amber-main);
         }
 
@@ -1608,9 +1608,9 @@ export default function QuestionBankManager({
         }
 
         .pill-all {
-          background: rgba(249, 115, 22, 0.15);
+          background: rgba(var(--accent-rgb), 0.15);
           color: var(--amber-main);
-          border-color: rgba(249, 115, 22, 0.3);
+          border-color: rgba(var(--accent-rgb), 0.3);
         }
 
         .sheet-card-body {
@@ -1779,14 +1779,14 @@ export default function QuestionBankManager({
         .btn-edit-mode-toggle:hover {
           background: var(--bg-card-hover);
           color: var(--text-primary);
-          border-color: rgba(249, 115, 22, 0.4);
+          border-color: rgba(var(--accent-rgb), 0.4);
         }
 
         .btn-edit-mode-toggle.edit-mode-active {
-          background: rgba(249, 115, 22, 0.15);
+          background: rgba(var(--accent-rgb), 0.15);
           color: var(--amber-main);
-          border-color: rgba(249, 115, 22, 0.4);
-          box-shadow: 0 0 12px rgba(249, 115, 22, 0.2);
+          border-color: rgba(var(--accent-rgb), 0.4);
+          box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.2);
         }
 
         /* Single-Line Row Table Styling */
@@ -1870,8 +1870,8 @@ export default function QuestionBankManager({
 
         .sheet-tag-btn:hover {
           color: var(--amber-main);
-          border-color: rgba(249, 115, 22, 0.4);
-          background: rgba(249, 115, 22, 0.1);
+          border-color: rgba(var(--accent-rgb), 0.4);
+          background: rgba(var(--accent-rgb), 0.1);
         }
 
         /* Dot-based History Outcome Display with hollow outline placeholder dots */
@@ -1991,13 +1991,13 @@ export default function QuestionBankManager({
         }
 
         .sheet-select-chip:hover {
-          border-color: rgba(249, 115, 22, 0.4);
+          border-color: rgba(var(--accent-rgb), 0.4);
           color: var(--text-primary);
         }
 
         .sheet-select-chip.selected {
-          background: rgba(249, 115, 22, 0.15);
-          border-color: rgba(249, 115, 22, 0.4);
+          background: rgba(var(--accent-rgb), 0.15);
+          border-color: rgba(var(--accent-rgb), 0.4);
           color: var(--amber-main);
           font-weight: 700;
         }
@@ -2021,8 +2021,8 @@ export default function QuestionBankManager({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: rgba(249, 115, 22, 0.1);
-          border: 1px solid rgba(249, 115, 22, 0.25);
+          background: rgba(var(--accent-rgb), 0.1);
+          border: 1px solid rgba(var(--accent-rgb), 0.25);
           padding: 0.6rem 0.85rem;
           border-radius: var(--radius-md);
           font-size: 0.85rem;

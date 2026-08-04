@@ -121,28 +121,68 @@ export default function SettingsView({
     else if (onResetAllData) onResetAllData();
   };
 
+  const PALETTES = [
+    { id: 'sunset',        name: 'Sunset Ember',  primary: '#f97316', secondary: '#ea580c' },
+    { id: 'emerald',       name: 'Cyber Emerald', primary: '#10b981', secondary: '#059669' },
+    { id: 'violet',        name: 'Deep Violet',   primary: '#8b5cf6', secondary: '#7c3aed' },
+    { id: 'electric-blue', name: 'Electric Blue', primary: '#0ea5e9', secondary: '#0284c7' },
+    { id: 'rose',          name: 'Neon Rose',     primary: '#f43f5e', secondary: '#e11d48' }
+  ];
+  const activePalette = settings.palette || 'sunset';
+  const activePaletteData = PALETTES.find(p => p.id === activePalette) || PALETTES[0];
+
   return (
-    <div className="settings-stacked-container glass-card">
-      {/* Header */}
-      <div className="settings-header-stacked">
-        <div className="header-title-flex">
-          <Settings size={22} className="text-amber" />
-          <h2 className="page-title">Settings</h2>
+    <div className="settings-container glass-card">
+      <div className="settings-header">
+        <div>
+          <h2 className="settings-title">
+            <Settings size={22} className="text-amber" />
+            <span>App Settings</span>
+          </h2>
+          <p className="settings-subtitle">Customize scoring points, sprint time weights, accent theme palettes, and data backups.</p>
         </div>
-        <p className="page-subtitle">Configure scoring points, duration suggestion weights, and data backups.</p>
+
+        <div className="settings-header-actions">
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={() => {
+              if (window.confirm('Reset scoring points, sprint weights, and theme palette back to defaults?')) {
+                if (onSaveSettings) {
+                  onSaveSettings({
+                    palette: 'sunset',
+                    pointsByDifficulty: { Easy: 10, Medium: 20, Hard: 30 },
+                    timeWeightsByDifficulty: { Easy: 4, Medium: 8, Hard: 15 }
+                  });
+                }
+                setPtsEasy(10);
+                setPtsMedium(20);
+                setPtsHard(30);
+                setWeightEasy(4);
+                setWeightMedium(8);
+                setWeightHard(15);
+                setToastMsg('Reset settings to defaults!');
+                setTimeout(() => setToastMsg(''), 2500);
+              }
+            }}
+          >
+            <RotateCcw size={15} />
+            <span>Reset Defaults</span>
+          </button>
+        </div>
       </div>
 
       {/* Unsaved Changes Banner */}
       {hasUnsavedChanges && (
-        <div className="unsaved-banner-top flex-between">
-          <div className="unsaved-left">
+        <div className="unsaved-banner">
+          <div className="unsaved-banner-content">
             <AlertCircle size={18} className="text-amber" />
-            <span>You have unsaved changes</span>
+            <span>You have unsaved changes to scoring or sprint duration weights!</span>
           </div>
+
           <div className="unsaved-actions">
             <button className="btn btn-secondary btn-sm" onClick={handleDiscardChanges}>
-              <RotateCcw size={14} />
-              <span>Discard</span>
+              Discard
             </button>
             <button className="btn btn-primary btn-sm" onClick={handleSaveAll}>
               <Save size={14} />
@@ -152,9 +192,47 @@ export default function SettingsView({
         </div>
       )}
 
-      {toastMsg && <div className="save-toast-banner">{toastMsg}</div>}
+      {/* Floating Toast */}
+      {toastMsg && (
+        <div className="settings-float-toast">
+          <span>✓</span>
+          <span>{toastMsg}</span>
+        </div>
+      )}
 
       <div className="settings-form">
+        {/* Section 0: Accent Theme Palette */}
+        <section className="settings-stacked-section">
+          <div className="setting-single-line-row">
+            <div className="setting-label-col">
+              <h3 className="setting-heading">Accent Theme Palette</h3>
+              <p className="setting-subtext">Select your preferred accent color scheme for Sprintset</p>
+            </div>
+
+            <div className="palette-dropdown-row">
+              <span
+                className="swatch-color-dot"
+                style={{ background: `linear-gradient(135deg, ${activePaletteData.primary} 0%, ${activePaletteData.secondary} 100%)` }}
+              />
+              <select
+                className="palette-select"
+                value={activePalette}
+                onChange={e => {
+                  const chosen = PALETTES.find(p => p.id === e.target.value);
+                  if (onSaveSettings && chosen) {
+                    onSaveSettings({ ...settings, palette: chosen.id });
+                    setToastMsg(`Switched to ${chosen.name}!`);
+                    setTimeout(() => setToastMsg(''), 1800);
+                  }
+                }}
+              >
+                {PALETTES.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </section>
         {/* Section 1: Scoring Configuration */}
         <section className="settings-stacked-section">
           <div className="setting-single-line-row">
@@ -327,7 +405,7 @@ export default function SettingsView({
       </section>
 
       <style>{`
-        .settings-stacked-container {
+        .settings-container {
           max-width: 1100px;
           margin: 1.5rem auto;
           padding: 2rem;
@@ -336,42 +414,54 @@ export default function SettingsView({
           gap: 1.5rem;
         }
 
-        .settings-header-stacked {
+        .settings-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 1rem;
           border-bottom: 1px solid var(--border-subtle);
           padding-bottom: 1.25rem;
         }
 
-        .header-title-flex {
+        .settings-title {
           display: flex;
           align-items: center;
           gap: 0.65rem;
-        }
-
-        .page-title {
           font-family: var(--font-heading);
           font-size: 1.5rem;
           font-weight: 800;
+          color: var(--text-primary);
+          margin: 0;
         }
 
-        .page-subtitle {
+        .settings-subtitle {
           font-size: 0.85rem;
           color: var(--text-muted);
-          margin-top: 0.2rem;
+          margin-top: 0.25rem;
         }
 
-        /* Unsaved Banner Top */
-        .unsaved-banner-top {
-          background: rgba(249, 115, 22, 0.12);
-          border: 1px solid rgba(249, 115, 22, 0.35);
+        .settings-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-shrink: 0;
+          padding-top: 0.2rem;
+        }
+
+        /* Unsaved Banner */
+        .unsaved-banner {
+          background: rgba(var(--accent-rgb), 0.1);
+          border: 1px solid rgba(var(--accent-rgb), 0.3);
           padding: 0.75rem 1.25rem;
           border-radius: var(--radius-md);
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 1rem;
           animation: fadeIn 0.2s ease;
         }
 
-        .unsaved-left {
+        .unsaved-banner-content {
           display: flex;
           align-items: center;
           gap: 0.6rem;
@@ -386,14 +476,29 @@ export default function SettingsView({
           gap: 0.65rem;
         }
 
-        .save-toast-banner {
-          background: rgba(16, 185, 129, 0.15);
-          border: 1px solid rgba(16, 185, 129, 0.3);
+        .settings-float-toast {
+          position: fixed;
+          bottom: 1.5rem;
+          right: 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: rgba(15, 23, 42, 0.92);
+          border: 1px solid rgba(16, 185, 129, 0.4);
           color: var(--easy-color);
-          padding: 0.6rem 1rem;
+          padding: 0.65rem 1.1rem;
           border-radius: var(--radius-md);
           font-weight: 600;
           font-size: 0.85rem;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(12px);
+          z-index: 9999;
+          animation: toastSlideIn 0.2s ease;
+        }
+
+        @keyframes toastSlideIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
 
         .settings-form {
@@ -437,6 +542,51 @@ export default function SettingsView({
         .setting-subtext {
           font-size: 0.78rem;
           color: var(--text-muted);
+        }
+
+        /* Palette Dropdown */
+        .palette-dropdown-row {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+        }
+
+        .palette-select {
+          appearance: none;
+          background: var(--bg-input);
+          border: 1.5px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          color: var(--text-primary);
+          font-family: var(--font-sans);
+          font-size: 0.85rem;
+          font-weight: 600;
+          padding: 0.45rem 2rem 0.45rem 0.75rem;
+          cursor: pointer;
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 0.6rem center;
+        }
+
+        .palette-select:focus,
+        .palette-select:hover {
+          border-color: var(--amber-main);
+          box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
+        }
+
+        .palette-select option {
+          background: #161b26;
+          color: var(--text-primary);
+        }
+
+        .swatch-color-dot {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          display: inline-block;
+          flex-shrink: 0;
+          box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
         }
 
         .setting-controls-right {

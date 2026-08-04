@@ -25,10 +25,17 @@ export default function App() {
     saveAppState(appState);
   }, [appState]);
 
-  // Sync Theme attribute on <html> element
+  // Sync Theme & Palette attributes on <html> element
   useEffect(() => {
-    if (appState.settings && appState.settings.theme) {
-      document.documentElement.setAttribute('data-theme', appState.settings.theme);
+    if (appState.settings) {
+      if (appState.settings.theme) {
+        document.documentElement.setAttribute('data-theme', appState.settings.theme);
+      }
+      if (appState.settings.palette) {
+        document.documentElement.setAttribute('data-palette', appState.settings.palette);
+      } else {
+        document.documentElement.removeAttribute('data-palette');
+      }
     }
   }, [appState.settings]);
 

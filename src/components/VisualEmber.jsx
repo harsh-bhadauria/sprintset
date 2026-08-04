@@ -133,14 +133,14 @@ export default function VisualEmber({ solvedCount = 0, points = 0, isSprintActiv
         }
 
         .stage-1 .ember-glow-ring {
-          background: rgba(249, 115, 22, 0.15);
-          box-shadow: 0 0 30px rgba(249, 115, 22, 0.3);
+          background: rgba(var(--accent-rgb), 0.15);
+          box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.3);
           animation: pulseGlow 3s infinite ease-in-out;
         }
 
         .stage-2 .ember-glow-ring {
-          background: rgba(249, 115, 22, 0.25);
-          box-shadow: 0 0 45px rgba(249, 115, 22, 0.5);
+          background: rgba(var(--accent-rgb), 0.25);
+          box-shadow: 0 0 45px rgba(var(--accent-rgb), 0.5);
           animation: pulseGlow 2s infinite ease-in-out;
         }
 
