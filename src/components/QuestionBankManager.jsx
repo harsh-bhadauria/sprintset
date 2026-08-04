@@ -2,16 +2,26 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Search, Plus, Upload, Download, RotateCcw, Edit2, Trash2, 
   Filter, X, ArrowLeft, BookOpen, Layers, 
-  ChevronRight, MoreVertical, FolderPlus, RefreshCw, AlertTriangle, FileText, Replace
+  ChevronRight, MoreVertical, FolderPlus, RefreshCw, AlertTriangle, FileText, Replace,
+  CheckSquare, Square
 } from 'lucide-react';
 import { parseCSV, exportToCSV } from '../utils/csvHandler';
 import { formatTopicName } from './SessionSummary';
 
-export const getQuestionSheet = (q) => {
-  if (q && q.sheet && String(q.sheet).trim() !== '') {
-    return String(q.sheet).trim();
+export const getQuestionSheets = (q) => {
+  if (!q) return ['Default'];
+  if (Array.isArray(q.sheets) && q.sheets.length > 0) {
+    const valid = q.sheets.map(s => String(s).trim()).filter(Boolean);
+    return valid.length > 0 ? valid : ['Default'];
   }
-  return 'Default';
+  if (q.sheet && String(q.sheet).trim() !== '') {
+    return [String(q.sheet).trim()];
+  }
+  return ['Default'];
+};
+
+export const getQuestionSheet = (q) => {
+  return getQuestionSheets(q)[0];
 };
 
 export const getQuestionLink = (q) => {
@@ -20,6 +30,55 @@ export const getQuestionLink = (q) => {
   }
   const query = encodeURIComponent(`${q ? q.name : ''} leetcode`);
   return `https://www.google.com/search?q=${query}`;
+};
+
+/**
+ * Merge imported question items into existing bank.
+ * Case-insensitive match on question name merges target sheet into existing question's sheets array.
+ */
+export const mergeImportedQuestions = (existingQuestions, importedItems, targetSheetOverride = null) => {
+  const updatedQuestions = [...existingQuestions];
+
+  importedItems.forEach(imported => {
+    const importedName = String(imported.name || '').trim().toLowerCase();
+    if (!importedName) return;
+
+    const existingIndex = updatedQuestions.findIndex(
+      q => String(q.name || '').trim().toLowerCase() === importedName
+    );
+
+    const sheetToAdd = targetSheetOverride || (imported.sheets && imported.sheets[0]) || imported.sheet || 'Default';
+
+    if (existingIndex !== -1) {
+      // Duplicate match found -> add sheet to existing question's sheets array without duplicates
+      const existing = updatedQuestions[existingIndex];
+      const currentSheets = getQuestionSheets(existing);
+      const newSheets = Array.from(new Set([...currentSheets, sheetToAdd]));
+
+      updatedQuestions[existingIndex] = {
+        ...existing,
+        sheets: newSheets,
+        link: existing.link || imported.link || '',
+        topic: existing.topic || imported.topic || 'General'
+      };
+    } else {
+      // New question creation
+      const newSheets = targetSheetOverride
+        ? [targetSheetOverride]
+        : (imported.sheets && imported.sheets.length > 0 ? imported.sheets : [imported.sheet || 'Default']);
+
+      updatedQuestions.push({
+        id: imported.id || `q-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        name: String(imported.name).trim(),
+        topic: String(imported.topic || 'General').trim(),
+        difficulty: imported.difficulty || 'Medium',
+        sheets: newSheets,
+        link: String(imported.link || '').trim()
+      });
+    }
+  });
+
+  return updatedQuestions;
 };
 
 export default function QuestionBankManager({
@@ -58,7 +117,7 @@ export default function QuestionBankManager({
   const [addSheetNameInput, setAddSheetNameInput] = useState('');
   const [addSheetCSVFile, setAddSheetCSVFile] = useState(null);
 
-  // Modal State for Add / Edit Question (Single question only)
+  // Modal State for Add / Edit Question
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
 
@@ -67,7 +126,7 @@ export default function QuestionBankManager({
     name: '',
     topic: 'Arrays & Hashing',
     difficulty: 'Medium',
-    sheet: 'Default',
+    sheets: ['Default'],
     link: ''
   });
 
@@ -105,7 +164,7 @@ export default function QuestionBankManager({
     }
   };
 
-  // Group questions by sheet (including empty customSheets)
+  // Group questions by sheet (multi-sheet membership)
   const sheetGroups = useMemo(() => {
     const map = new Map();
 
@@ -116,11 +175,13 @@ export default function QuestionBankManager({
     });
 
     questions.forEach(q => {
-      const sheetName = getQuestionSheet(q);
-      if (!map.has(sheetName)) {
-        map.set(sheetName, []);
-      }
-      map.get(sheetName).push(q);
+      const sheetsList = getQuestionSheets(q);
+      sheetsList.forEach(sheetName => {
+        if (!map.has(sheetName)) {
+          map.set(sheetName, []);
+        }
+        map.get(sheetName).push(q);
+      });
     });
     return map;
   }, [questions, customSheets]);
@@ -148,7 +209,7 @@ export default function QuestionBankManager({
     if (selectedSheetView === 'ALL') {
       return questions;
     }
-    return questions.filter(q => getQuestionSheet(q) === selectedSheetView);
+    return questions.filter(q => getQuestionSheets(q).includes(selectedSheetView));
   }, [questions, selectedSheetView]);
 
   const allTopics = useMemo(() => {
@@ -159,10 +220,11 @@ export default function QuestionBankManager({
   // Filtered Questions in table view
   const filteredQuestions = useMemo(() => {
     return scopedQuestions.filter(q => {
+      const sheetsList = getQuestionSheets(q);
       const matchSearch = searchTerm === '' || 
         q.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         q.topic.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getQuestionSheet(q).toLowerCase().includes(searchTerm.toLowerCase());
+        sheetsList.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchTopic = selectedTopic === 'ALL' || q.topic === selectedTopic;
       const matchDiff = selectedDiff === 'ALL' || q.difficulty === selectedDiff;
@@ -176,7 +238,7 @@ export default function QuestionBankManager({
     if (!findReplaceScope || findReplaceScope === 'GLOBAL' || findReplaceScope === 'ALL') {
       return questions;
     }
-    return questions.filter(q => getQuestionSheet(q) === findReplaceScope);
+    return questions.filter(q => getQuestionSheets(q).includes(findReplaceScope));
   }, [questions, findReplaceScope]);
 
   const matchingQuestionsCount = useMemo(() => {
@@ -184,6 +246,9 @@ export default function QuestionBankManager({
     const oldValLower = findReplaceOldValue.trim().toLowerCase();
 
     return targetQuestionsSet.filter(q => {
+      if (findReplaceField === 'sheet') {
+        return getQuestionSheets(q).some(s => s.toLowerCase() === oldValLower);
+      }
       const fieldVal = (q[findReplaceField] || '').toString().trim().toLowerCase();
       return fieldVal === oldValLower;
     }).length;
@@ -198,36 +263,7 @@ export default function QuestionBankManager({
     return { easy, medium, hard, attempted };
   };
 
-  // --- CSV Import Handlers ---
-  const handleGlobalCSVImport = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      const imported = await parseCSV(file);
-      if (imported.length === 0) {
-        alert('No valid question rows found in CSV.');
-        return;
-      }
-      const existingIds = new Set(questions.map(q => q.id));
-      const newQuestions = [...questions];
-      imported.forEach(q => {
-        const normalized = {
-          ...q,
-          sheet: getQuestionSheet(q)
-        };
-        if (!existingIds.has(q.id)) {
-          newQuestions.push(normalized);
-        }
-      });
-
-      onUpdateQuestions(newQuestions);
-      setIsGlobalMenuOpen(false);
-      alert(`Successfully imported ${imported.length} questions across sheets!`);
-    } catch (err) {
-      alert('Error parsing CSV file: ' + err.message);
-    }
-  };
-
+  // --- CSV Import Handlers with Merge on Duplicate ---
   const handleScopedCSVImport = async (e) => {
     const file = e.target.files[0];
     if (!file || !selectedSheetView || selectedSheetView === 'ALL') return;
@@ -237,21 +273,12 @@ export default function QuestionBankManager({
         alert('No valid question rows found in CSV.');
         return;
       }
-      const existingIds = new Set(questions.map(q => q.id));
-      const newQuestions = [...questions];
-      imported.forEach(q => {
-        const normalized = {
-          ...q,
-          sheet: selectedSheetView
-        };
-        if (!existingIds.has(q.id)) {
-          newQuestions.push(normalized);
-        }
-      });
+      
+      const mergedQuestions = mergeImportedQuestions(questions, imported, selectedSheetView);
 
-      onUpdateQuestions(newQuestions);
+      onUpdateQuestions(mergedQuestions);
       setIsSheetMenuOpen(false);
-      alert(`Successfully imported ${imported.length} questions into "${selectedSheetView}"!`);
+      alert(`Successfully processed ${imported.length} rows into "${selectedSheetView}"!`);
     } catch (err) {
       alert('Error parsing CSV file: ' + err.message);
     }
@@ -294,12 +321,20 @@ export default function QuestionBankManager({
 
       const updatedQuestions = questions.map(q => {
         if (targetIds.has(q.id)) {
-          const currentVal = (q[findReplaceField] || '').toString().trim().toLowerCase();
-          if (currentVal === oldValLower) {
-            return {
-              ...q,
-              [findReplaceField]: newValClean
-            };
+          if (findReplaceField === 'sheet') {
+            const currentSheets = getQuestionSheets(q);
+            if (currentSheets.some(s => s.toLowerCase() === oldValLower)) {
+              const updatedSheets = currentSheets.map(s => s.toLowerCase() === oldValLower ? newValClean : s);
+              return { ...q, sheets: Array.from(new Set(updatedSheets)) };
+            }
+          } else {
+            const currentVal = (q[findReplaceField] || '').toString().trim().toLowerCase();
+            if (currentVal === oldValLower) {
+              return {
+                ...q,
+                [findReplaceField]: newValClean
+              };
+            }
           }
         }
         return q;
@@ -334,18 +369,8 @@ export default function QuestionBankManager({
       try {
         const imported = await parseCSV(addSheetCSVFile);
         if (imported.length > 0) {
-          const existingIds = new Set(questions.map(q => q.id));
-          const newQuestions = [...questions];
-          imported.forEach(q => {
-            const normalized = {
-              ...q,
-              sheet: cleanName
-            };
-            if (!existingIds.has(q.id)) {
-              newQuestions.push(normalized);
-            }
-          });
-          onUpdateQuestions(newQuestions);
+          const mergedQuestions = mergeImportedQuestions(questions, imported, cleanName);
+          onUpdateQuestions(mergedQuestions);
         }
       } catch (err) {
         alert('Error parsing sheet CSV file: ' + err.message);
@@ -356,16 +381,16 @@ export default function QuestionBankManager({
     setSelectedSheetView(cleanName);
   };
 
-  // --- Add / Edit Question Flow (Simplified Single Question Form) ---
+  // --- Add / Edit Question Flow (Multi-Select Sheets) ---
   const handleOpenAdd = () => {
     setEditingQuestion(null);
-    const defaultSheet = (selectedSheetView && selectedSheetView !== 'ALL') ? selectedSheetView : 'Default';
+    const defaultSheets = (selectedSheetView && selectedSheetView !== 'ALL') ? [selectedSheetView] : ['Default'];
     setFormData({
       id: `custom-${Date.now()}`,
       name: '',
       topic: allTopics[0] || 'Arrays & Hashing',
       difficulty: 'Medium',
-      sheet: defaultSheet,
+      sheets: defaultSheets,
       link: ''
     });
     setIsCreatingNewSheetInModal(false);
@@ -377,11 +402,21 @@ export default function QuestionBankManager({
     setEditingQuestion(question);
     setFormData({
       ...question,
-      sheet: getQuestionSheet(question)
+      sheets: getQuestionSheets(question)
     });
     setIsCreatingNewSheetInModal(false);
     setNewSheetNameInput('');
     setIsModalOpen(true);
+  };
+
+  const toggleSheetMembership = (sheetName) => {
+    const current = formData.sheets || [];
+    if (current.includes(sheetName)) {
+      const next = current.filter(s => s !== sheetName);
+      setFormData({ ...formData, sheets: next.length > 0 ? next : ['Default'] });
+    } else {
+      setFormData({ ...formData, sheets: [...current, sheetName] });
+    }
   };
 
   const handleDeleteQuestion = (id) => {
@@ -390,22 +425,39 @@ export default function QuestionBankManager({
     }
   };
 
-  // Delete Sheet: Permanently deletes all questions in this sheet!
+  // Delete Sheet: Only delete fully-orphaned questions!
   const handleDeleteSheet = (sheetToDelete) => {
     if (!sheetToDelete || sheetToDelete === 'Default' || sheetToDelete === 'ALL') return;
-    const sheetQuestions = sheetGroups.get(sheetToDelete) || [];
-    const count = sheetQuestions.length;
+    const memberQuestions = questions.filter(q => getQuestionSheets(q).includes(sheetToDelete));
+    const totalMemberCount = memberQuestions.length;
 
-    const confirmMsg = `This will permanently delete the sheet "${sheetToDelete}" and all ${count} question${count === 1 ? '' : 's'} in it. Export the sheet first if you want to keep a copy.\n\nAre you sure you want to permanently delete this sheet?`;
+    const orphanedQuestions = memberQuestions.filter(q => {
+      const remaining = getQuestionSheets(q).filter(s => s !== sheetToDelete);
+      return remaining.length === 0;
+    });
+
+    const orphanedCount = orphanedQuestions.length;
+
+    const confirmMsg = `${totalMemberCount} question${totalMemberCount === 1 ? '' : 's'} will be removed from "${sheetToDelete}"; ${orphanedCount} of those aren't in any other sheet and will be deleted entirely.\n\nAre you sure you want to proceed?`;
 
     if (window.confirm(confirmMsg)) {
-      // Remove all questions belonging to this sheet
-      const updatedQuestions = questions.filter(q => getQuestionSheet(q) !== sheetToDelete);
-      
-      // Clean up questionStates for deleted questions
-      const deletedQuestionIds = new Set(sheetQuestions.map(q => q.id));
+      const orphanedIds = new Set(orphanedQuestions.map(q => q.id));
+
+      const updatedQuestions = questions
+        .filter(q => !orphanedIds.has(q.id))
+        .map(q => {
+          if (getQuestionSheets(q).includes(sheetToDelete)) {
+            const remaining = getQuestionSheets(q).filter(s => s !== sheetToDelete);
+            return {
+              ...q,
+              sheets: remaining.length > 0 ? remaining : ['Default']
+            };
+          }
+          return q;
+        });
+
       const nextQuestionStates = { ...questionStates };
-      deletedQuestionIds.forEach(id => {
+      orphanedIds.forEach(id => {
         delete nextQuestionStates[id];
       });
 
@@ -452,27 +504,27 @@ export default function QuestionBankManager({
       return;
     }
 
-    let finalSheet = formData.sheet;
-    if (isCreatingNewSheetInModal) {
-      if (!newSheetNameInput.trim()) {
-        alert('Please enter a name for the new sheet.');
-        return;
+    let finalSheets = [...(formData.sheets || ['Default'])];
+    if (isCreatingNewSheetInModal && newSheetNameInput.trim()) {
+      const newSheet = newSheetNameInput.trim();
+      if (!customSheets.includes(newSheet)) {
+        saveCustomSheets([...customSheets, newSheet]);
       }
-      finalSheet = newSheetNameInput.trim();
-      if (!customSheets.includes(finalSheet)) {
-        saveCustomSheets([...customSheets, finalSheet]);
+      if (!finalSheets.includes(newSheet)) {
+        finalSheets.push(newSheet);
       }
     }
 
     const cleanedFormData = {
       ...formData,
-      sheet: (finalSheet && finalSheet.trim()) || 'Default'
+      sheets: finalSheets.length > 0 ? finalSheets : ['Default']
     };
 
     if (editingQuestion) {
       onUpdateQuestions(questions.map(q => q.id === editingQuestion.id ? cleanedFormData : q));
     } else {
-      onUpdateQuestions([cleanedFormData, ...questions]);
+      const merged = mergeImportedQuestions(questions, [cleanedFormData]);
+      onUpdateQuestions(merged);
     }
     setIsModalOpen(false);
   };
@@ -707,7 +759,7 @@ export default function QuestionBankManager({
                           onClick={() => handleOpenFindReplace('ALL')}
                         >
                           <Replace size={15} />
-                          <span>Find & Replace (All)</span>
+                          <span>Find & Replace</span>
                         </button>
                       </>
                     ) : (
@@ -832,7 +884,7 @@ export default function QuestionBankManager({
                   <th className="col-diff">Difficulty</th>
                   
                   {selectedSheetView === 'ALL' ? (
-                    <th className="col-sheet">Sheet</th>
+                    <th className="col-sheet">Sheets</th>
                   ) : (
                     <th className="col-history">History State</th>
                   )}
@@ -844,7 +896,7 @@ export default function QuestionBankManager({
                 {filteredQuestions.length > 0 ? (
                   filteredQuestions.map(q => {
                     const st = questionStates[q.id];
-                    const sheetTag = getQuestionSheet(q);
+                    const sheetsList = getQuestionSheets(q);
                     return (
                       <tr key={q.id}>
                         {/* Clickable Question Name Link */}
@@ -873,17 +925,22 @@ export default function QuestionBankManager({
                         {/* Conditional Column rendering */}
                         {selectedSheetView === 'ALL' ? (
                           <td className="col-sheet">
-                            <button
-                              type="button"
-                              className="sheet-tag-btn"
-                              onClick={() => {
-                                setSelectedSheetView(sheetTag);
-                                setSearchTerm('');
-                              }}
-                              title={`Filter by ${sheetTag}`}
-                            >
-                              {sheetTag}
-                            </button>
+                            <div className="sheets-tags-wrapper">
+                              {sheetsList.map(sheetTag => (
+                                <button
+                                  key={sheetTag}
+                                  type="button"
+                                  className="sheet-tag-btn"
+                                  onClick={() => {
+                                    setSelectedSheetView(sheetTag);
+                                    setSearchTerm('');
+                                  }}
+                                  title={`Filter by ${sheetTag}`}
+                                >
+                                  {sheetTag}
+                                </button>
+                              ))}
+                            </div>
                           </td>
                         ) : (
                           <td className="col-history">
@@ -970,7 +1027,7 @@ export default function QuestionBankManager({
                   className="input-field-full"
                 />
                 <span className="form-subtext">
-                  Upload a CSV file (schema: <code>name, topic, difficulty, link</code>) to populate questions directly into this new sheet.
+                  Upload a CSV file (schema: <code>name, topic, difficulty, link</code>) to populate questions directly into this sheet (merging duplicate question names automatically).
                 </span>
               </div>
 
@@ -991,7 +1048,7 @@ export default function QuestionBankManager({
         </div>
       )}
 
-      {/* Modal 2: Add / Edit Question (Simplified Single Question Form) */}
+      {/* Modal 2: Add / Edit Question (Multi-Select Sheets) */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal-card glass-card" onClick={e => e.stopPropagation()}>
@@ -1041,50 +1098,65 @@ export default function QuestionBankManager({
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Sheet / Collection</label>
-                  <select
-                    value={isCreatingNewSheetInModal ? '__NEW__' : formData.sheet}
-                    onChange={(e) => {
-                      if (e.target.value === '__NEW__') {
-                        setIsCreatingNewSheetInModal(true);
-                      } else {
-                        setIsCreatingNewSheetInModal(false);
-                        setFormData({ ...formData, sheet: e.target.value });
-                      }
-                    }}
-                    className="input-field-full"
-                  >
-                    {orderedSheetNames.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                    <option value="__NEW__">+ Create New Sheet...</option>
-                  </select>
+              {/* Multi-Select Sheets UI */}
+              <div className="form-group">
+                <label>Sheet Membership (Select all that apply) *</label>
+                <div className="sheet-chips-selector">
+                  {orderedSheetNames.map(sheetName => {
+                    const isSelected = (formData.sheets || []).includes(sheetName);
+                    return (
+                      <button
+                        key={sheetName}
+                        type="button"
+                        className={`sheet-select-chip ${isSelected ? 'selected' : ''}`}
+                        onClick={() => toggleSheetMembership(sheetName)}
+                      >
+                        {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                        <span>{sheetName}</span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                  {isCreatingNewSheetInModal && (
+                {isCreatingNewSheetInModal ? (
+                  <div className="form-row mt-2">
                     <input
                       type="text"
                       required
                       value={newSheetNameInput}
                       onChange={(e) => setNewSheetNameInput(e.target.value)}
                       placeholder="Enter new sheet name..."
-                      className="input-field-full mt-2"
+                      className="input-field-full"
                       autoFocus
                     />
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary text-xs"
+                      onClick={() => setIsCreatingNewSheetInModal(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-link-action mt-1"
+                    onClick={() => setIsCreatingNewSheetInModal(true)}
+                  >
+                    + Add to a new sheet...
+                  </button>
+                )}
+              </div>
 
-                <div className="form-group">
-                  <label>Problem URL / Link</label>
-                  <input
-                    type="url"
-                    value={formData.link}
-                    onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-                    placeholder="https://leetcode.com/problems/..."
-                    className="input-field-full"
-                  />
-                </div>
+              <div className="form-group">
+                <label>Problem URL / Link</label>
+                <input
+                  type="url"
+                  value={formData.link}
+                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                  placeholder="https://leetcode.com/problems/..."
+                  className="input-field-full"
+                />
               </div>
 
               <div className="form-actions">
@@ -1133,7 +1205,7 @@ export default function QuestionBankManager({
                   className="input-field-full"
                 >
                   <option value="topic">Topic</option>
-                  <option value="sheet">Sheet / Collection</option>
+                  <option value="sheet">Sheet Name</option>
                   <option value="difficulty">Difficulty</option>
                 </select>
               </div>
@@ -1618,12 +1690,19 @@ export default function QuestionBankManager({
         }
 
         /* Fixed Column Width Allocations */
-        .col-name { width: 38%; }
+        .col-name { width: 36%; }
         .col-topic { width: 22%; }
         .col-diff { width: 14%; }
-        .col-sheet { width: 16%; }
-        .col-history { width: 16%; }
+        .col-sheet { width: 18%; }
+        .col-history { width: 18%; }
         .col-actions { width: 10%; text-align: right; }
+
+        .sheets-tags-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          overflow-x: auto;
+        }
 
         /* Clickable Question Name Link */
         .q-name-link {
@@ -1653,9 +1732,6 @@ export default function QuestionBankManager({
           color: var(--text-muted);
           cursor: pointer;
           transition: all 0.15s ease;
-          max-width: 100%;
-          overflow: hidden;
-          text-overflow: ellipsis;
           white-space: nowrap;
           display: inline-block;
         }
@@ -1709,11 +1785,63 @@ export default function QuestionBankManager({
           background: rgba(239, 68, 68, 0.15);
         }
 
-        /* Modal */
+        /* Modal & Multi-Select Sheet Chips */
         .modal-card {
           max-width: 540px;
           width: 100%;
           padding: 2rem;
+        }
+
+        .sheet-chips-selector {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+          background: var(--bg-input);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 0.6rem 0.75rem;
+        }
+
+        .sheet-select-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.35rem 0.65rem;
+          border-radius: var(--radius-sm);
+          background: var(--bg-card);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-muted);
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .sheet-select-chip:hover {
+          border-color: rgba(249, 115, 22, 0.4);
+          color: var(--text-primary);
+        }
+
+        .sheet-select-chip.selected {
+          background: rgba(249, 115, 22, 0.15);
+          border-color: rgba(249, 115, 22, 0.4);
+          color: var(--amber-main);
+          font-weight: 700;
+        }
+
+        .btn-link-action {
+          background: transparent;
+          border: none;
+          color: var(--amber-main);
+          font-size: 0.78rem;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 0;
+          text-align: left;
+        }
+
+        .btn-link-action:hover {
+          text-decoration: underline;
         }
 
         .destination-badge-box {
@@ -1812,7 +1940,9 @@ export default function QuestionBankManager({
           border-color: var(--amber-main);
         }
 
+        .mt-1 { margin-top: 0.25rem; }
         .mt-2 { margin-top: 0.5rem; }
+        .text-xs { font-size: 0.75rem; }
 
         .form-actions {
           display: flex;

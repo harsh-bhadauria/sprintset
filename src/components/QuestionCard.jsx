@@ -42,11 +42,14 @@ export default function QuestionCard({
           <span className="badge badge-topic">
             {formatTopicName(question.topic)}
           </span>
-          {question.sheet && (
-            <span className="badge-sheet">
-              {question.sheet}
+          {((Array.isArray(question.sheets) && question.sheets.length > 0)
+            ? question.sheets
+            : [question.sheet || 'Default']
+          ).map(sheetName => (
+            <span key={sheetName} className="badge-sheet">
+              {sheetName}
             </span>
-          )}
+          ))}
         </div>
 
         <div className="attempts-pill" title="Number of incorrect submissions logged">

@@ -1,6 +1,20 @@
 import Papa from 'papaparse';
 
 /**
+ * Helper to normalize sheets array or legacy sheet string into array
+ */
+function parseSheetsField(row) {
+  if (row.sheets && String(row.sheets).trim() !== '') {
+    const list = String(row.sheets).split(';').map(s => s.trim()).filter(Boolean);
+    if (list.length > 0) return list;
+  }
+  if (row.sheet && String(row.sheet).trim() !== '') {
+    return [String(row.sheet).trim()];
+  }
+  return ['Default'];
+}
+
+/**
  * Parse CSV content string or File into question objects
  */
 export function parseCSV(csvStringOrFile) {
@@ -21,7 +35,7 @@ export function parseCSV(csvStringOrFile) {
             name: String(row.name || '').trim(),
             topic: String(row.topic || 'General').trim(),
             difficulty: normalizeDifficulty(row.difficulty),
-            sheet: (row.sheet && String(row.sheet).trim()) || 'Default',
+            sheets: parseSheetsField(row),
             link: String(row.link || '').trim()
           }));
 
@@ -36,8 +50,17 @@ export function parseCSV(csvStringOrFile) {
  * Export array of question objects to CSV format string and download
  */
 export function exportToCSV(questions, filename = 'questions.csv') {
-  const csv = Papa.unparse(questions, {
-    columns: ['id', 'name', 'topic', 'difficulty', 'sheet', 'link']
+  const formattedQuestions = questions.map(q => ({
+    id: q.id,
+    name: q.name,
+    topic: q.topic,
+    difficulty: q.difficulty,
+    sheets: Array.isArray(q.sheets) ? q.sheets.join('; ') : (q.sheet || 'Default'),
+    link: q.link || ''
+  }));
+
+  const csv = Papa.unparse(formattedQuestions, {
+    columns: ['id', 'name', 'topic', 'difficulty', 'sheets', 'link']
   });
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
