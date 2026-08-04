@@ -39,6 +39,7 @@ export default function SettingsView({
   const [weightHard, setWeightHard] = useState(savedWeightHard);
 
   const [toastMsg, setToastMsg] = useState('');
+  const [showSettingsSyncKey, setShowSettingsSyncKey] = useState(false);
 
   // Check if current form inputs differ from saved settings baseline
   const hasUnsavedChanges = 
