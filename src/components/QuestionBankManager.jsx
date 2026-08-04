@@ -1762,19 +1762,18 @@ export default function QuestionBankManager({
 
         /* Edit Mode Toggle Button */
         .btn-edit-mode-toggle {
+          height: 38px;
+          padding: 0 1rem;
+          font-family: var(--font-heading);
+          font-size: 0.85rem;
+          font-weight: 700;
           display: inline-flex;
           align-items: center;
-          gap: 0.4rem;
-          padding: 0.4rem 0.85rem;
+          gap: 0.45rem;
           border-radius: var(--radius-md);
-          background: var(--bg-input);
-          border: 1px solid var(--border-subtle);
-          color: var(--text-secondary);
-          font-size: 0.82rem;
-          font-weight: 600;
+          white-space: nowrap;
           cursor: pointer;
           transition: all 0.15s ease;
-          white-space: nowrap;
         }
 
         .btn-edit-mode-toggle:hover {
@@ -1787,7 +1786,7 @@ export default function QuestionBankManager({
           background: rgba(249, 115, 22, 0.15);
           color: var(--amber-main);
           border-color: rgba(249, 115, 22, 0.4);
-          font-weight: 700;
+          box-shadow: 0 0 12px rgba(249, 115, 22, 0.2);
         }
 
         /* Single-Line Row Table Styling */
