@@ -1,10 +1,12 @@
 import React from 'react';
-import { Database, BarChart3, Settings, Zap, Moon, Sun, Clock, Triangle } from 'lucide-react';
+import { Database, BarChart3, Settings, Zap, Moon, Sun, Clock, Triangle, Shield } from 'lucide-react';
 
 export default function Header({ 
   activeTab, 
   onSelectTab, 
   todayFocusMinutes = 0,
+  vetoMinutes = 0,
+  onOpenVetoModal,
   settings = {}, 
   onToggleTheme 
 }) {
@@ -54,8 +56,19 @@ export default function Header({
           {/* Today's Focus Metric */}
           <div className="today-metric-pill" title="Total focus minutes logged today">
             <Clock size={15} className="text-amber" />
-            <span><strong>{todayFocusMinutes}m</strong> focused today</span>
+            <span><strong>{todayFocusMinutes}m</strong> focused</span>
           </div>
+
+          {/* Veto Time Bank Metric */}
+          <button 
+            type="button"
+            className="today-metric-pill veto-metric-pill"
+            onClick={onOpenVetoModal}
+            title="Open Veto Time Bank Rewards & Sync"
+          >
+            <Shield size={15} className="text-amber" />
+            <span><strong>+{vetoMinutes}m</strong> Veto</span>
+          </button>
 
           <button 
             className="icon-btn" 

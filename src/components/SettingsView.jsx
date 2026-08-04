@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle } from 'lucide-react';
+import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, Shield } from 'lucide-react';
 import { exportStateJSON, importStateJSON } from '../utils/storage';
 import { exportToCSV, parseCSV } from '../utils/csvHandler';
 
@@ -233,6 +233,34 @@ export default function SettingsView({
             </div>
           </div>
         </section>
+
+        {/* Section: Veto Time Bank & Cloud Sync Key */}
+        <section className="settings-stacked-section">
+          <div className="setting-single-line-row">
+            <div className="setting-label-col">
+              <h3 className="setting-heading flex items-center gap-2">
+                <Shield size={18} className="text-amber" />
+                <span>Veto Cloud Sync Key</span>
+              </h3>
+              <p className="setting-subtext">Custom secret key used to sync your Veto time bank between devices</p>
+            </div>
+
+            <div className="sync-key-settings-input">
+              <input
+                type="text"
+                value={settings.syncKey || 'PADHLEBSDK'}
+                onChange={(e) => {
+                  const val = e.target.value.toUpperCase();
+                  onSaveSettings({ ...settings, syncKey: val });
+                }}
+                className="input-field-full text-center font-mono font-bold uppercase"
+                style={{ width: '180px' }}
+                placeholder="PADHLEBSDK"
+              />
+            </div>
+          </div>
+        </section>
+
         {/* Section 1: Scoring Configuration */}
         <section className="settings-stacked-section">
           <div className="setting-single-line-row">

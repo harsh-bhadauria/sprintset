@@ -6,13 +6,16 @@ import SessionSummary, { inferConfidence } from './components/SessionSummary';
 import QuestionBankManager from './components/QuestionBankManager';
 import AnalyticsView from './components/AnalyticsView';
 import SettingsView from './components/SettingsView';
+import VetoRewardsModal from './components/VetoRewardsModal';
 
 import { loadAppState, saveAppState, loadActiveSprintState, saveActiveSprintState } from './utils/storage';
 import { buildQuotaQuestionQueue } from './utils/weightedPicker';
+import { DEFAULT_SYNC_KEY, pushSyncData, pullSyncData } from './utils/cloudSync';
 
 export default function App() {
   const [appState, setAppState] = useState(() => loadAppState());
   const [activeTab, setActiveTab] = useState('sprint');
+  const [isVetoModalOpen, setIsVetoModalOpen] = useState(false);
 
   // Active Sprint session state (persisted across tab switches and page reloads)
   const [activeSprintState, setActiveSprintState] = useState(() => loadActiveSprintState());
@@ -43,6 +46,68 @@ export default function App() {
   useEffect(() => {
     saveActiveSprintState(activeSprintState);
   }, [activeSprintState]);
+
+  // Total points earned across lifetime sessions
+  const totalLifetimePoints = useMemo(() => {
+    return (appState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
+  }, [appState.sessions]);
+
+  const claimedVetoPoints = appState.claimedVetoPoints || 0;
+  const unclaimedVetoPoints = Math.max(0, totalLifetimePoints - claimedVetoPoints);
+  const vetoMinutes = Math.floor(unclaimedVetoPoints / 100);
+  const syncKey = appState.settings?.syncKey || DEFAULT_SYNC_KEY;
+
+  // Auto-sync Cloud on initial load
+  useEffect(() => {
+    pullSyncData(syncKey).then(remote => {
+      if (remote && remote.claimedVetoPoints !== undefined && remote.claimedVetoPoints > claimedVetoPoints) {
+        setAppState(prev => ({
+          ...prev,
+          claimedVetoPoints: remote.claimedVetoPoints
+        }));
+      }
+    });
+  }, [syncKey]);
+
+  // Handlers for Veto Rewards & Sync
+  const handleUpdateSyncKey = (newKey) => {
+    setAppState(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        syncKey: newKey
+      }
+    }));
+  };
+
+  const handleClaimPoints = (claimedAmt) => {
+    const nextClaimed = claimedVetoPoints + claimedAmt;
+    setAppState(prev => ({
+      ...prev,
+      claimedVetoPoints: nextClaimed
+    }));
+
+    pushSyncData(syncKey, {
+      claimedVetoPoints: nextClaimed,
+      totalLifetimePoints,
+      unclaimedVetoPoints: 0
+    });
+  };
+
+  const handleSyncCloud = async () => {
+    await pushSyncData(syncKey, {
+      claimedVetoPoints,
+      totalLifetimePoints,
+      unclaimedVetoPoints
+    });
+    const remote = await pullSyncData(syncKey);
+    if (remote && remote.claimedVetoPoints !== undefined && remote.claimedVetoPoints > claimedVetoPoints) {
+      setAppState(prev => ({
+        ...prev,
+        claimedVetoPoints: remote.claimedVetoPoints
+      }));
+    }
+  };
 
   // Calculate today's focus metrics for header pill and analytics overview
   const todayStats = useMemo(() => {
@@ -267,8 +332,20 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         todayFocusMinutes={todayStats.minutesFocused}
+        vetoMinutes={vetoMinutes}
+        onOpenVetoModal={() => setIsVetoModalOpen(true)}
         settings={appState.settings}
         onToggleTheme={handleToggleTheme}
+      />
+
+      <VetoRewardsModal
+        isOpen={isVetoModalOpen}
+        onClose={() => setIsVetoModalOpen(false)}
+        unclaimedPoints={unclaimedVetoPoints}
+        syncKey={syncKey}
+        onUpdateSyncKey={handleUpdateSyncKey}
+        onClaimPoints={handleClaimPoints}
+        onSyncCloud={handleSyncCloud}
       />
 
       {/* Main View Router */}
