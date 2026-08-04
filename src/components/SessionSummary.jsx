@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Award, CheckCircle2, XCircle, Clock, Home, Play, Edit3 } from 'lucide-react';
+import { Award, CheckCircle2, XCircle, Clock, Home, Play, Edit3, ExternalLink } from 'lucide-react';
 
 export function formatTopicName(topic) {
   if (!topic) return '';
@@ -43,6 +43,15 @@ export default function SessionSummary({
   onGoHome,
   onUpdateSessionConfidence
 }) {
+  // Question Link Fallback Helper (same logic as ActiveSprint)
+  const getQuestionLink = (r) => {
+    if (r.questionLink && r.questionLink.trim() !== '') {
+      return r.questionLink;
+    }
+    const query = encodeURIComponent(`${r.questionName || ''} leetcode`);
+    return `https://www.google.com/search?q=${query}`;
+  };
+
   const {
     id: sessionId,
     results = [],
@@ -282,8 +291,18 @@ export default function SessionSummary({
                         )}
                       </td>
 
-                      {/* Question Name */}
-                      <td className="font-semibold text-primary">{r.questionName}</td>
+                      {/* Question Name with Link */}
+                      <td>
+                        <a
+                          href={getQuestionLink(r)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="question-link-cell"
+                        >
+                          <span className="font-semibold text-primary">{r.questionName}</span>
+                          <ExternalLink size={12} className="question-link-icon" />
+                        </a>
+                      </td>
 
                       {/* Topic Pill */}
                       <td>
@@ -684,6 +703,29 @@ export default function SessionSummary({
         .dot-solid { background: #10b981; }
         .dot-ok { background: #60a5fa; }
         .dot-shaky { background: #f59e0b; }
+
+        .question-link-cell {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          text-decoration: none;
+          transition: opacity 0.15s ease;
+        }
+
+        .question-link-cell:hover {
+          text-decoration: underline;
+        }
+
+        .question-link-icon {
+          color: var(--text-muted);
+          opacity: 0.4;
+          transition: opacity 0.15s ease;
+          flex-shrink: 0;
+        }
+
+        .question-link-cell:hover .question-link-icon {
+          opacity: 1;
+        }
       `}</style>
     </div>
   );

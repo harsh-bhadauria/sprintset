@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ExternalLink, CheckCircle2, RefreshCw, Square, Check, Pause, Play, AlertTriangle, Zap, RotateCcw, Layers, Award, AlertCircle, Flag } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ExternalLink, CheckCircle2, RefreshCw, Square, Check, Pause, Play, AlertTriangle, Zap, RotateCcw, Layers, Award, AlertCircle, Flag, Clock } from 'lucide-react';
 import { getReplacementQuestion } from '../utils/weightedPicker';
 
 export default function ActiveSprint({
@@ -66,6 +66,13 @@ export default function ActiveSprint({
   const [ptsAnimTrigger, setPtsAnimTrigger] = useState(false);
   const [attemptsAnimTrigger, setAttemptsAnimTrigger] = useState(false);
 
+  // Time alert states
+  const [showLowTimeWarning, setShowLowTimeWarning] = useState(false);
+  const [showTimesUpFlash, setShowTimesUpFlash] = useState(false);
+  const [showLowTimeToast, setShowLowTimeToast] = useState(false);
+  const lowTimeAlertFired = useRef(false);
+  const timesUpFired = useRef(false);
+
   const currentQuestion = queue[currentIndex];
 
   useEffect(() => {
@@ -74,14 +81,32 @@ export default function ActiveSprint({
     const timer = setInterval(() => {
       const remain = computeTimeLeft();
       setTimeLeftSec(remain);
+
+      // 5-minute warning
+      if (remain <= 300 && remain > 0 && !lowTimeAlertFired.current) {
+        lowTimeAlertFired.current = true;
+        setShowLowTimeWarning(true);
+        setShowLowTimeToast(true);
+        // Auto-dismiss toast after 4 seconds
+        setTimeout(() => setShowLowTimeToast(false), 4000);
+      }
+
       if (remain <= 0) {
         clearInterval(timer);
-        handleCompleteSprint();
+        if (!timesUpFired.current) {
+          timesUpFired.current = true;
+          setShowTimesUpFlash(true);
+          // Brief flash then transition to completion
+          setTimeout(() => {
+            setShowTimesUpFlash(false);
+            finishSprintWithResults(results, false); // Timer expiry is NOT early
+          }, 1200);
+        }
       }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [actualStartMs, sessionData?.startedAtMs, durationSec, totalPausedMs, isPaused, pauseStartedAtMs, preCountdown]);
+  }, [actualStartMs, sessionData?.startedAtMs, durationSec, totalPausedMs, isPaused, pauseStartedAtMs, preCountdown, results]);
 
   const handleTogglePause = () => {
     if (isPaused) {
@@ -162,6 +187,7 @@ export default function ActiveSprint({
       const newResult = {
         questionId: currentQuestion.id,
         questionName: currentQuestion.name,
+        questionLink: currentQuestion.link || '',
         topic: currentQuestion.topic,
         difficulty: currentQuestion.difficulty,
         status: 'done',
@@ -184,6 +210,7 @@ export default function ActiveSprint({
       const newResult = {
         questionId: currentQuestion.id,
         questionName: currentQuestion.name,
+        questionLink: currentQuestion.link || '',
         topic: currentQuestion.topic,
         difficulty: currentQuestion.difficulty,
         status: 'gave_up',
@@ -212,7 +239,7 @@ export default function ActiveSprint({
   };
 
   const handleCompleteSprint = () => {
-    finishSprintWithResults(results, true);
+    finishSprintWithResults(results, true); // Manual stop = early
   };
 
   const finishSprintWithResults = (finalResults, isEarly = false) => {
@@ -288,6 +315,24 @@ export default function ActiveSprint({
           </div>
         )}
 
+        {/* Time's Up Flash Overlay */}
+        {showTimesUpFlash && (
+          <div className="times-up-overlay">
+            <div className="times-up-content">
+              <Clock size={48} className="times-up-icon" />
+              <span className="times-up-text">TIME'S UP</span>
+            </div>
+          </div>
+        )}
+
+        {/* 5-Minute Warning Toast */}
+        {showLowTimeToast && (
+          <div className="low-time-toast">
+            <AlertTriangle size={16} />
+            <span>5 minutes remaining!</span>
+          </div>
+        )}
+
         {/* Top Control Bar with Persistent Sprint Metrics Top-LEFT */}
         <div className="top-control-bar">
           <div className="top-left-sprint-metrics">
@@ -327,9 +372,9 @@ export default function ActiveSprint({
 
         {/* ZONE 2: Middle — timer + divider/question/meta group, centered via space-evenly */}
         <div className="sprint-middle-zone">
-          {/* Massive Countdown Timer (7.25rem) */}
+          {/* Massive Countdown Timer */}
           <div className="ringless-timer-centered">
-            <div className={`time-display-massive-focal ${isPaused ? 'timer-paused-blink' : ''}`}>
+            <div className={`time-display-massive-focal ${isPaused ? 'timer-paused-blink' : ''} ${showLowTimeWarning && !isPaused ? 'timer-low-time' : ''} ${showTimesUpFlash ? 'timer-times-up' : ''}`}>
               {formatTime(timeLeftSec)}
             </div>
           </div>
@@ -673,6 +718,104 @@ export default function ActiveSprint({
           50%, 100% { opacity: 0.2; }
         }
 
+        /* Low time warning — amber pulse */
+        .timer-low-time {
+          color: #f59e0b !important;
+          animation: lowTimePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes lowTimePulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+
+        /* Time's up — red flash */
+        .timer-times-up {
+          color: #ef4444 !important;
+          animation: timesUpFlash 0.3s ease-in-out infinite;
+        }
+
+        @keyframes timesUpFlash {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+
+        /* Time's Up Full-Screen Flash Overlay */
+        .times-up-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(239, 68, 68, 0.12);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border-radius: var(--radius-lg);
+          animation: timesUpOverlayIn 0.3s ease;
+        }
+
+        @keyframes timesUpOverlayIn {
+          0% { opacity: 0; transform: scale(0.95); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+
+        .times-up-content {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .times-up-icon {
+          color: #ef4444;
+          animation: timesUpIconPulse 0.4s ease-in-out infinite alternate;
+        }
+
+        @keyframes timesUpIconPulse {
+          0% { transform: scale(1); }
+          100% { transform: scale(1.15); }
+        }
+
+        .times-up-text {
+          font-family: var(--font-heading);
+          font-weight: 900;
+          font-size: 3rem;
+          color: #ef4444;
+          letter-spacing: 0.15em;
+        }
+
+        /* 5-Minute Warning Toast */
+        .low-time-toast {
+          position: absolute;
+          top: 1rem;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.6rem 1.25rem;
+          border-radius: var(--radius-full);
+          background: rgba(245, 158, 11, 0.15);
+          border: 1px solid rgba(245, 158, 11, 0.4);
+          color: #f59e0b;
+          font-family: var(--font-heading);
+          font-weight: 700;
+          font-size: 0.85rem;
+          animation: toastSlideIn 0.35s ease, toastFadeOut 0.5s ease 3.5s forwards;
+          pointer-events: none;
+        }
+
+        @keyframes toastSlideIn {
+          0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        @keyframes toastFadeOut {
+          0% { opacity: 1; }
+          100% { opacity: 0; }
+        }
 
         /* Dedicated Divider+Question Wrapper */
         .divider-question-wrapper {
