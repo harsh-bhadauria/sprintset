@@ -798,6 +798,17 @@ export default function QuestionBankManager({
                 <span>Add Question</span>
               </button>
 
+              {/* Edit Mode Toggle Button */}
+              <button
+                type="button"
+                className={`btn btn-secondary btn-edit-mode-toggle ${isEditMode ? 'edit-mode-active' : ''}`}
+                onClick={() => setIsEditMode(!isEditMode)}
+                title={isEditMode ? "Exit Edit Mode" : "Enable Edit Mode to edit or delete questions"}
+              >
+                <Edit2 size={15} />
+                <span>{isEditMode ? 'Done Editing' : 'Edit Mode'}</span>
+              </button>
+
               {/* Per-Sheet Kebab Actions Menu */}
               <div className="kebab-menu-wrapper" ref={sheetMenuRef}>
                 <button
@@ -943,17 +954,6 @@ export default function QuestionBankManager({
                   <option value="Hard">Hard</option>
                 </select>
               </div>
-
-              {/* Edit Mode Toggle Button */}
-              <button
-                type="button"
-                className={`btn-edit-mode-toggle ${isEditMode ? 'edit-mode-active' : ''}`}
-                onClick={() => setIsEditMode(!isEditMode)}
-                title={isEditMode ? "Exit Edit Mode" : "Enable Edit Mode to edit or delete questions"}
-              >
-                <Edit2 size={14} />
-                <span>{isEditMode ? 'Done Editing' : 'Edit Mode'}</span>
-              </button>
             </div>
           </div>
 
