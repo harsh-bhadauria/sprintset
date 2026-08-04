@@ -267,12 +267,12 @@ export default function SettingsView({
           </div>
           <div className="button-group-side">
             <button className="btn btn-secondary btn-sm" onClick={handleExportJSON}>
-              <Download size={14} />
+              <Upload size={14} />
               <span>Export JSON</span>
             </button>
 
             <label className="btn btn-secondary btn-sm cursor-pointer">
-              <Upload size={14} />
+              <Download size={14} />
               <span>Import JSON</span>
               <input
                 type="file"

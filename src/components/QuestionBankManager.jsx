@@ -649,7 +649,7 @@ export default function QuestionBankManager({
                         setIsGlobalMenuOpen(false);
                       }}
                     >
-                      <Download size={15} />
+                      <Upload size={15} />
                       <span>Export All (CSV)</span>
                     </button>
 
@@ -832,7 +832,7 @@ export default function QuestionBankManager({
                             setIsSheetMenuOpen(false);
                           }}
                         >
-                          <Download size={15} />
+                          <Upload size={15} />
                           <span>Export All (CSV)</span>
                         </button>
 
@@ -848,7 +848,7 @@ export default function QuestionBankManager({
                     ) : (
                       <>
                         <label className="menu-item-btn cursor-pointer">
-                          <Upload size={15} />
+                          <Download size={15} />
                           <span>Batch Import</span>
                           <input
                             type="file"
@@ -867,7 +867,7 @@ export default function QuestionBankManager({
                             setIsSheetMenuOpen(false);
                           }}
                         >
-                          <Download size={15} />
+                          <Upload size={15} />
                           <span>Export Sheet</span>
                         </button>
 
