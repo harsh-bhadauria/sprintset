@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, PawPrint, Eye, EyeOff, Lock, RefreshCw } from 'lucide-react';
+import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, PawPrint, Eye, EyeOff, Lock, RefreshCw, Check } from 'lucide-react';
 import { exportStateJSON, importStateJSON } from '../utils/storage';
 import { exportToCSV, parseCSV } from '../utils/csvHandler';
 import { generateRandomSyncKey } from '../utils/cloudSync';
@@ -13,6 +13,7 @@ export default function SettingsView({
   onImportJSON, 
   onImportCSV, 
   onResetData,
+  onForceUpload,
   onStateImported,
   onResetAllData,
   onUpdateQuestions
@@ -41,6 +42,7 @@ export default function SettingsView({
 
   const [toastMsg, setToastMsg] = useState('');
   const [showSettingsSyncKey, setShowSettingsSyncKey] = useState(false);
+  const [localSyncKey, setLocalSyncKey] = useState(settings.syncKey || '');
 
   // Auto-update local state when props (e.g. from cloud sync) change
   useEffect(() => {
@@ -50,7 +52,8 @@ export default function SettingsView({
     setWeightEasy(savedWeightEasy);
     setWeightMedium(savedWeightMedium);
     setWeightHard(savedWeightHard);
-  }, [savedPtsEasy, savedPtsMedium, savedPtsHard, savedWeightEasy, savedWeightMedium, savedWeightHard]);
+    setLocalSyncKey(settings.syncKey || '');
+  }, [savedPtsEasy, savedPtsMedium, savedPtsHard, savedWeightEasy, savedWeightMedium, savedWeightHard, settings.syncKey]);
 
   // Check if current form inputs differ from saved settings baseline
   const hasUnsavedChanges = 
@@ -372,6 +375,13 @@ export default function SettingsView({
                 style={{ display: 'none' }}
               />
             </label>
+            
+            {onForceUpload && (
+              <button className="btn btn-primary btn-sm ml-2" onClick={onForceUpload}>
+                <RefreshCw size={14} />
+                <span>Force Upload State</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -423,11 +433,8 @@ export default function SettingsView({
             >
               <input
                 type={showSettingsSyncKey ? 'text' : 'password'}
-                value={settings.syncKey || ''}
-                onChange={(e) => {
-                  const val = e.target.value.toUpperCase();
-                  onSaveSettings({ ...settings, syncKey: val });
-                }}
+                value={localSyncKey}
+                onChange={(e) => setLocalSyncKey(e.target.value.toUpperCase())}
                 className="text-center font-mono font-bold uppercase"
                 style={{ 
                   width: '150px', 
@@ -458,6 +465,21 @@ export default function SettingsView({
               </button>
             </div>
 
+            {localSyncKey !== (settings.syncKey || '') && (
+              <button
+                type="button"
+                className="btn btn-primary p-2"
+                style={{ marginLeft: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => {
+                  onSaveSettings({ ...settings, syncKey: localSyncKey });
+                  setToastMsg('Sync Key updated!');
+                  setTimeout(() => setToastMsg(''), 1800);
+                }}
+                title="Save New Sync Key"
+              >
+                <Check size={16} />
+              </button>
+            )}
           </div>
         </div>
       </section>

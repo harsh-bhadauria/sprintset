@@ -314,6 +314,21 @@ export default function App() {
   };
 
   // Finish Sprint Handler
+  const handleForceUpload = async () => {
+    setIsCloudSyncing(true);
+    const lifetimePoints = (appState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
+    const claimed = appState.claimedVetoPoints || 0;
+    const localUnclaimed = Math.max(0, lifetimePoints - claimed);
+    const finalUnclaimed = cloudUnclaimedPoints !== null ? Math.max(cloudUnclaimedPoints, localUnclaimed) : localUnclaimed;
+    
+    await pushSyncData(syncKey, {
+      ...appState,
+      unclaimedVetoPoints: finalUnclaimed
+    });
+    setIsCloudSyncing(false);
+    alert('State successfully forced to cloud!');
+  };
+
   const handleFinishSprint = (finishedSessionData) => {
     // 1. Auto-infer confidence for solved questions if missing
     const processedResults = (finishedSessionData.results || []).map(r => {
@@ -465,7 +480,7 @@ export default function App() {
         onSelectTab={setActiveTab}
         todayFocusMinutes={todayStats.minutesFocused}
         vetoMinutes={vetoMinutes}
-        vetoEnabled={appState.settings?.vetoEnabled !== false}
+        vetoEnabled={Boolean(appState.settings?.vetoEnabled)}
         onOpenVetoModal={() => setIsVetoModalOpen(true)}
         settings={appState.settings}
         onToggleTheme={handleToggleTheme}
@@ -542,6 +557,7 @@ export default function App() {
             onImportJSON={handleImportJSON}
             onImportCSV={handleImportCSV}
             onResetData={handleResetData}
+            onForceUpload={handleForceUpload}
           />
         )}
       </main>
