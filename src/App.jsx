@@ -196,6 +196,14 @@ export default function App() {
     }
   };
 
+  const handleClaimPoints = (claimedAmt) => {
+    const nextClaimed = claimedVetoPoints + claimedAmt;
+    setAppState(prev => ({
+      ...prev,
+      claimedVetoPoints: nextClaimed
+    }));
+  };
+
   // Calculate today's focus metrics for header pill and analytics overview
   const todayStats = useMemo(() => {
     const todayStr = new Date().toDateString();
