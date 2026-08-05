@@ -5,6 +5,13 @@ export const SUPABASE_ANON_KEY = 'sb_publishable_kiNFNLlDfzXQhlshTlneYg_UUzzt960
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+export function generateRandomSyncKey() {
+  const words = ['SHADOW-PAW', 'CYBER-CAT', 'NEXUS-PAW', 'APEX-PHOENIX', 'VALKYRIE-PAW', 'NEBULA-CAT', 'TITAN-PAW', 'OVERCLOCK-CAT'];
+  const randWord = words[Math.floor(Math.random() * words.length)];
+  const num = Math.floor(100 + Math.random() * 900);
+  return `${randWord}-${num}`;
+}
+
 /**
  * Deterministic hash helper for syncKey channel IDs
  */

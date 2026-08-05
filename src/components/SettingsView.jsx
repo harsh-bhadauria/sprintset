@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, PawPrint, Eye, EyeOff, Lock, RefreshCw, Check } from 'lucide-react';
 import { exportStateJSON, importStateJSON } from '../utils/storage';
 import { exportToCSV, parseCSV } from '../utils/csvHandler';
-import { generateRandomSyncKey } from '../utils/cloudSync';
-import { deleteSupabaseSync } from '../utils/supabaseClient';
+import { deleteSupabaseSync, generateRandomSyncKey } from '../utils/supabaseClient';
 
 export default function SettingsView({ 
   settings: propSettings, 
