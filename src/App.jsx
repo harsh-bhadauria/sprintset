@@ -142,18 +142,16 @@ export default function App() {
     pullSupabaseSync(syncKey).then(remote => {
       if (remote) {
         performSmartMerge(remote);
-        showToast('Connected to Supabase Realtime', 'success', 2000);
       }
       setIsCloudSyncing(false);
     });
   }, [syncKey]);
 
-  // Realtime WebSocket Subscription
+  // Realtime WebSocket Subscription (silent background updates)
   useEffect(() => {
     if (!syncKey) return;
     const unsubscribe = subscribeToRealtimeSync(syncKey, (remotePayload) => {
       performSmartMerge(remotePayload);
-      showToast('Live state synced from another device!', 'success', 2500);
     });
     return () => unsubscribe();
   }, [syncKey]);
