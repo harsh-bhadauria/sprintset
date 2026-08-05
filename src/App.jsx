@@ -110,6 +110,15 @@ export default function App() {
       nextState.questionStates = nextQStates;
     }
 
+    // 5. Merge Custom Questions if remote has extra custom questions
+    if (remotePayload.questions && Array.isArray(remotePayload.questions)) {
+      const localQIds = new Set((prev.questions || []).map(q => q.id));
+      const missingRemoteQ = remotePayload.questions.filter(q => !localQIds.has(q.id));
+      if (missingRemoteQ.length > 0) {
+        nextState.questions = [...(prev.questions || []), ...missingRemoteQ];
+      }
+    }
+
     return nextState;
   };
 
@@ -122,21 +131,47 @@ export default function App() {
 
   const [isInitialPullDone, setIsInitialPullDone] = useState(false);
 
-  // Auto-sync Cloud on initial load & key change
+  // Auto-sync Cloud on initial load & key change (Pull & Merge FIRST before pushing)
   useEffect(() => {
+    if (!syncKey || !syncKey.trim()) {
+      setIsInitialPullDone(true);
+      return;
+    }
+
     setIsCloudSyncing(true);
-    pullSyncData(syncKey).then(remote => {
+    pullSyncData(syncKey).then(async (remote) => {
+      let currentState = appState;
       if (remote) {
-        performSmartMerge(remote);
+        currentState = getMergedState(appState, remote);
+        setAppState(currentState);
+        if (remote.unclaimedVetoPoints !== undefined) {
+          setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
+        }
       }
+      
+      // Push merged state back to cloud so both devices are immediately unified
+      const lifetimePoints = (currentState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
+      const claimed = currentState.claimedVetoPoints || 0;
+      const localUnclaimed = Math.max(0, lifetimePoints - claimed);
+
+      await pushSyncData(syncKey, {
+        ...currentState,
+        unclaimedVetoPoints: localUnclaimed
+      });
+
       setIsCloudSyncing(false);
       setIsInitialPullDone(true);
     });
   }, [syncKey]);
 
-  // Auto-sync Cloud when sessions or key settings change
+  // Auto-sync Cloud when sessions or key settings change (Excluding syncKey to prevent race conditions)
+  const isFirstRender = useRef(true);
   useEffect(() => {
-    if (!isInitialPullDone) return;
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (!isInitialPullDone || !syncKey || !syncKey.trim()) return;
 
     const pushCurrentState = async () => {
       setIsCloudSyncing(true);
@@ -148,7 +183,7 @@ export default function App() {
     };
 
     pushCurrentState();
-  }, [isInitialPullDone, appState.sessions?.length, appState.claimedVetoPoints, appState.settings?.updatedAtMs, syncKey]);
+  }, [isInitialPullDone, appState.sessions?.length, appState.claimedVetoPoints, appState.settings?.updatedAtMs]);
 
   // Push on visibility hidden (tab close / switch)
   const appStateRef = useRef(appState);
