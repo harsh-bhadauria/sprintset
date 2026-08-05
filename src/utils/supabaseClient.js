@@ -69,6 +69,30 @@ export async function pullSupabaseSync(syncKey) {
 }
 
 /**
+ * Delete sync payload for a specific Sync Key from Supabase table
+ */
+export async function deleteSupabaseSync(syncKey) {
+  const syncId = getCleanSyncKeyId(syncKey);
+  if (!syncId || !supabase) return false;
+
+  try {
+    const { error } = await supabase
+      .from('user_sync_data')
+      .delete()
+      .eq('id', syncId);
+
+    if (error) {
+      console.error('Supabase Delete Error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase Delete Exception:', err);
+    return false;
+  }
+}
+
+/**
  * Subscribe to real-time WebSockets on Supabase for a specific Sync Key
  */
 export function subscribeToRealtimeSync(syncKey, onRemoteUpdate) {

@@ -3,6 +3,7 @@ import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw
 import { exportStateJSON, importStateJSON } from '../utils/storage';
 import { exportToCSV, parseCSV } from '../utils/csvHandler';
 import { generateRandomSyncKey } from '../utils/cloudSync';
+import { deleteSupabaseSync } from '../utils/supabaseClient';
 
 export default function SettingsView({ 
   settings: propSettings, 
@@ -497,6 +498,21 @@ export default function SettingsView({
             Danger Zone
           </h3>
           <p className="setting-subtext">Irreversible destructive actions for local storage and progress</p>
+        </div>
+
+        <div className="setting-single-line-row danger-row-bg" style={{ marginBottom: '0.75rem' }}>
+          <div className="setting-label-col">
+            <h3 className="setting-heading text-danger">Reset Cloud Data (Supabase)</h3>
+            <p className="setting-subtext">Irreversibly delete your synced progress payload from the cloud database</p>
+          </div>
+          <button
+            className="btn btn-danger btn-sm"
+            onClick={handleResetCloud}
+            disabled={isDeletingCloud}
+          >
+            <Trash2 size={14} />
+            <span>{isDeletingCloud ? 'Deleting...' : 'Delete Cloud Payload'}</span>
+          </button>
         </div>
 
         <div className="setting-single-line-row danger-row-bg">
