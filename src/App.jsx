@@ -416,9 +416,7 @@ export default function App() {
   const handleResetData = () => {
     if (window.confirm('Are you sure you want to reset all data to defaults? This action cannot be undone.')) {
       localStorage.clear();
-      setAppState(loadAppState());
-      setActiveSprintState(null);
-      setCompletedSession(null);
+      window.location.reload();
     }
   };
 
