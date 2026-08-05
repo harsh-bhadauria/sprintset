@@ -24,9 +24,9 @@ It's a personal tool I built because I genuinely could not deal with open-ended 
 
 - **Confidence that infers itself**: Solved fast on the first try? Solid. Took a few attempts and a while? Shaky. Sprintset tags it automatically from your attempt count and solve time, and quietly resurfaces your shaky or gave-up questions in future sprints with zero manual spaced-repetition bookkeeping required.
 
-- **Veto integration**: Sprint points convert into screen time via Veto, synced across devices with a 6-digit key over `localStorage` + `ntfy.sh`. Also doubles as a "phone is the timer, laptop is the editor" setup, which turned out to be way more useful than intended.
+- **Veto integration and Realtime Sync**: Sprint points convert into screen time via Veto. Sync your laptop and phone in real-time using a 6-digit Passphrase or Google Sign-In over Supabase WebSockets. Keeps your phone next to your keyboard as a live companion timer while you code.
 
-- **Zero backend, by design**: No server, no database, no accounts. Your data lives in your browser and a CSV you control. Export/import whenever.
+- **Client-first design**: Runs 100% locally in your browser out of the box. No accounts required. Your data lives in your browser and CSVs you control. Export or import whenever.
 
 - **Light and dark, several accents**: Because staring at the same palette for six hours straight does something to a person.
 
