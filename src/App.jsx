@@ -11,7 +11,7 @@ import VetoRewardsModal from './components/VetoRewardsModal';
 
 import { loadAppState, saveAppState, loadActiveSprintState, saveActiveSprintState } from './utils/storage';
 import { buildQuotaQuestionQueue } from './utils/weightedPicker';
-import { DEFAULT_SYNC_KEY, pushSyncData, pullSyncData } from './utils/cloudSync';
+import { pushSupabaseSync, pullSupabaseSync, subscribeToRealtimeSync } from './utils/supabaseClient';
 
 export default function App() {
   const [appState, setAppState] = useState(() => loadAppState());
@@ -59,13 +59,19 @@ export default function App() {
   const claimedVetoPoints = appState.claimedVetoPoints || 0;
   const localUnclaimedPoints = Math.max(0, totalLifetimePoints - claimedVetoPoints);
   
-  // Use cloudUnclaimedPoints if available and higher than localUnclaimedPoints
   const unclaimedVetoPoints = cloudUnclaimedPoints !== null
     ? Math.max(cloudUnclaimedPoints, localUnclaimedPoints)
     : localUnclaimedPoints;
 
   const vetoMinutes = Math.floor(unclaimedVetoPoints / 100);
-  const syncKey = appState.settings?.syncKey || DEFAULT_SYNC_KEY;
+  const syncKey = appState.settings?.syncKey || 'SHADOW-PAW-482';
+
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success', duration = 3000) => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), duration);
+  };
 
   const getMergedState = (prev, remotePayload) => {
     const nextState = { ...prev };
@@ -75,7 +81,6 @@ export default function App() {
       const localTime = prev.settings?.updatedAtMs || 0;
       const remoteTime = remotePayload.settings.updatedAtMs || 0;
       
-      // Accept remote settings if remote is newer OR equal OR local has no timestamp
       if (remoteTime >= localTime || !prev.settings?.updatedAtMs) {
         nextState.settings = { ...prev.settings, ...remotePayload.settings };
       }
@@ -110,7 +115,7 @@ export default function App() {
       nextState.questionStates = nextQStates;
     }
 
-    // 5. Merge Custom Questions if remote has extra custom questions
+    // 5. Merge Custom Questions
     if (remotePayload.questions && Array.isArray(remotePayload.questions)) {
       const localQIds = new Set((prev.questions || []).map(q => q.id));
       const missingRemoteQ = remotePayload.questions.filter(q => !localQIds.has(q.id));
@@ -123,148 +128,47 @@ export default function App() {
   };
 
   const performSmartMerge = (remotePayload) => {
+    if (!remotePayload) return;
     if (remotePayload.unclaimedVetoPoints !== undefined) {
       setCloudUnclaimedPoints(remotePayload.unclaimedVetoPoints);
     }
     setAppState(prev => getMergedState(prev, remotePayload));
   };
 
-  const [isInitialPullDone, setIsInitialPullDone] = useState(false);
-
-  // Auto-sync Cloud on initial load & key change (Pull & Merge FIRST before pushing)
+  // Initial Supabase Pull & Merge
   useEffect(() => {
-    if (!syncKey || !syncKey.trim()) {
-      setIsInitialPullDone(true);
-      return;
-    }
-
+    if (!syncKey) return;
     setIsCloudSyncing(true);
-    pullSyncData(syncKey).then(async (remote) => {
-      let currentState = appState;
+    pullSupabaseSync(syncKey).then(remote => {
       if (remote) {
-        currentState = getMergedState(appState, remote);
-        setAppState(currentState);
-        if (remote.unclaimedVetoPoints !== undefined) {
-          setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
-        }
+        performSmartMerge(remote);
+        showToast('Connected to Supabase Realtime', 'success', 2000);
       }
-      
-      // Push merged state back to cloud so both devices are immediately unified
-      const lifetimePoints = (currentState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
-      const claimed = currentState.claimedVetoPoints || 0;
-      const localUnclaimed = Math.max(0, lifetimePoints - claimed);
-
-      await pushSyncData(syncKey, {
-        ...currentState,
-        unclaimedVetoPoints: localUnclaimed
-      });
-
       setIsCloudSyncing(false);
-      setIsInitialPullDone(true);
     });
   }, [syncKey]);
 
-  // Auto-sync Cloud when sessions or key settings change (Excluding syncKey to prevent race conditions)
-  const isFirstRender = useRef(true);
+  // Realtime WebSocket Subscription
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    if (!isInitialPullDone || !syncKey || !syncKey.trim()) return;
-
-    const pushCurrentState = async () => {
-      setIsCloudSyncing(true);
-      await pushSyncData(syncKey, {
-        ...appState,
-        unclaimedVetoPoints: localUnclaimedPoints
-      });
-      setIsCloudSyncing(false);
-    };
-
-    pushCurrentState();
-  }, [isInitialPullDone, appState.sessions?.length, appState.claimedVetoPoints, appState.settings?.updatedAtMs]);
-
-  // Push on visibility hidden (tab close / switch)
-  const appStateRef = useRef(appState);
-  const syncKeyRef = useRef(syncKey);
-  const unclaimedPointsRef = useRef(cloudUnclaimedPoints);
-
-  useEffect(() => {
-    appStateRef.current = appState;
-    syncKeyRef.current = syncKey;
-    unclaimedPointsRef.current = cloudUnclaimedPoints;
-  }, [appState, syncKey, cloudUnclaimedPoints]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' || document.visibilityState === 'unloaded') {
-        const currentState = appStateRef.current;
-        const currentKey = syncKeyRef.current;
-        const currentCloudPoints = unclaimedPointsRef.current;
-        
-        const lifetimePoints = (currentState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
-        const claimed = currentState.claimedVetoPoints || 0;
-        const localUnclaimed = Math.max(0, lifetimePoints - claimed);
-        const finalUnclaimed = currentCloudPoints !== null ? Math.max(currentCloudPoints, localUnclaimed) : localUnclaimed;
-        
-        pushSyncData(currentKey, {
-          ...currentState,
-          unclaimedVetoPoints: finalUnclaimed
-        });
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleVisibilityChange);
-    };
-  }, []);
-
-  // Handlers for Veto Rewards & Sync
-  const handleUpdateSyncKey = (newKey) => {
-    setAppState(prev => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        syncKey: newKey,
-        updatedAtMs: Date.now()
-      }
-    }));
-  };
-
-  const handleClaimPoints = (claimedAmt) => {
-    const nextClaimed = claimedVetoPoints + claimedAmt;
-    setAppState(prev => ({
-      ...prev,
-      claimedVetoPoints: nextClaimed
-    }));
-    setCloudUnclaimedPoints(0);
-  };
-
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = 'success', duration = 3000) => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), duration);
-  };
+    if (!syncKey) return;
+    const unsubscribe = subscribeToRealtimeSync(syncKey, (remotePayload) => {
+      performSmartMerge(remotePayload);
+      showToast('Live state synced from another device!', 'success', 2500);
+    });
+    return () => unsubscribe();
+  }, [syncKey]);
 
   const handleSyncCloud = async () => {
     setIsCloudSyncing(true);
     try {
-      // 1. Pull remote first
-      const remote = await pullSyncData(syncKey);
+      const remote = await pullSupabaseSync(syncKey);
       let finalStateToPush = appState;
       
-      // 2. Perform smart merge synchronously
       if (remote) {
         finalStateToPush = getMergedState(appState, remote);
         setAppState(finalStateToPush);
       }
       
-      // Recalculate true unclaimed points with merged state
       const mergedLifetimePoints = (finalStateToPush.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
       const mergedClaimed = finalStateToPush.claimedVetoPoints || 0;
       const mergedLocalUnclaimed = Math.max(0, mergedLifetimePoints - mergedClaimed);
@@ -275,19 +179,18 @@ export default function App() {
         finalUnclaimed = Math.max(mergedLocalUnclaimed, remote.unclaimedVetoPoints);
       }
       
-      // 3. Push the merged state back to cloud
-      const pushSuccess = await pushSyncData(syncKey, {
+      const pushSuccess = await pushSupabaseSync(syncKey, {
         ...finalStateToPush,
         unclaimedVetoPoints: finalUnclaimed
       });
 
-      if (pushSuccess || remote) {
-        showToast('Cloud Sync successful!', 'success');
+      if (pushSuccess) {
+        showToast('Supabase Sync successful!', 'success');
       } else {
-        showToast('Cloud Sync failed: Server rate-limited or offline', 'error');
+        showToast('Supabase Sync failed: check network', 'error');
       }
     } catch (err) {
-      showToast('Cloud Sync failed', 'error');
+      showToast('Supabase Sync failed', 'error');
     } finally {
       setIsCloudSyncing(false);
     }
@@ -558,8 +461,6 @@ export default function App() {
         isOpen={isVetoModalOpen}
         onClose={() => setIsVetoModalOpen(false)}
         unclaimedPoints={unclaimedVetoPoints}
-        syncKey={syncKey}
-        onUpdateSyncKey={handleUpdateSyncKey}
         onClaimPoints={handleClaimPoints}
         onSyncCloud={handleSyncCloud}
       />

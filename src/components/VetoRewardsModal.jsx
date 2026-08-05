@@ -1,37 +1,23 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { PawPrint, Zap, Clock, CheckCircle2, Copy, ExternalLink, RefreshCw, X, Key, Eye, EyeOff, Lock } from 'lucide-react';
-import { DEFAULT_SYNC_KEY, generateVetoDeepLink } from '../utils/cloudSync';
+import { PawPrint, Zap, Clock, Copy, X, RefreshCw } from 'lucide-react';
 
 export default function VetoRewardsModal({
   isOpen,
   onClose,
   unclaimedPoints = 0,
-  syncKey = DEFAULT_SYNC_KEY,
-  onUpdateSyncKey,
   onClaimPoints,
   onSyncCloud
 }) {
-  const [isEditingKey, setIsEditingKey] = useState(false);
-  const [showKey, setShowKey] = useState(false);
-  const [keyInput, setKeyInput] = useState(syncKey || DEFAULT_SYNC_KEY);
   const [copiedToast, setCopiedToast] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   if (!isOpen) return null;
 
-  const currentKey = (syncKey || DEFAULT_SYNC_KEY).toUpperCase();
   const conversionRate = 100;
   const earnedMinutes = Math.floor(unclaimedPoints / conversionRate);
-  const deepLink = generateVetoDeepLink(unclaimedPoints, conversionRate, currentKey);
-
-  const handleSaveKey = (e) => {
-    e.preventDefault();
-    if (!keyInput.trim()) return;
-    const cleanKey = keyInput.trim().toUpperCase();
-    if (onUpdateSyncKey) onUpdateSyncKey(cleanKey);
-    setIsEditingKey(false);
-  };
+  const minutes = Math.floor(unclaimedPoints / 100);
+  const deepLink = `veto://claim-reward?points=${unclaimedPoints}&minutes=${minutes}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(deepLink);
@@ -49,8 +35,6 @@ export default function VetoRewardsModal({
     if (onSyncCloud) await onSyncCloud();
     setTimeout(() => setIsSyncing(false), 800);
   };
-
-  const maskString = (str) => '•'.repeat(Math.max(6, str.length));
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
@@ -73,8 +57,6 @@ export default function VetoRewardsModal({
         </div>
 
         <div className="veto-body">
-
-
           {/* Points & Time Stats */}
           <div className="veto-stats-grid">
             <div className="veto-stat-card">

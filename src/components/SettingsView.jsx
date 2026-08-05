@@ -410,76 +410,56 @@ export default function SettingsView({
         </div>
       </section>
 
-      {/* Cloud Sync Profile Section */}
+      {/* Supabase Realtime Cloud Sync & Google Auth Section */}
       <section className="settings-stacked-section">
-        <div className="setting-single-line-row">
+        <div className="setting-single-line-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '1rem' }}>
           <div className="setting-label-col">
-            <span className="text-sm font-bold text-sky-500 flex items-center gap-1 mb-1">
-              <Lock size={14} className="text-sky-500" /> Private Cloud Sync Key
-            </span>
-            <p className="setting-subtext">Secret passphrase used to securely link your laptop and phone profile data</p>
+            <h3 className="setting-heading flex items-center gap-2 text-sky-400">
+              <Lock size={16} className="text-sky-400" /> Supabase Realtime Cloud Sync
+            </h3>
+            <p className="setting-subtext">Link your laptop and phone in real-time using a 6-digit Sync Passphrase or Google Sign-In</p>
           </div>
 
-          <div className="sync-key-settings-input" style={{ display: 'flex', alignItems: 'center' }}>
-            <div 
-              style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                background: 'var(--bg-input)', 
-                border: '1.5px solid var(--border-subtle)', 
-                borderRadius: 'var(--radius-md)', 
-                overflow: 'hidden' 
-              }}
-            >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.25rem 0.5rem' }}>
+              <span className="text-xs text-muted font-bold">Passphrase:</span>
               <input
-                type={showSettingsSyncKey ? 'text' : 'password'}
+                type="text"
                 value={localSyncKey}
-                onChange={(e) => setLocalSyncKey(e.target.value.toUpperCase())}
-                className="text-center font-mono font-bold uppercase"
-                style={{ 
-                  width: '150px', 
-                  background: 'transparent', 
-                  border: 'none', 
-                  padding: '0.45rem', 
-                  color: 'var(--text-primary)',
-                  outline: 'none'
-                }}
+                onChange={e => setLocalSyncKey(e.target.value.toUpperCase())}
                 placeholder="SHADOW-PAW-482"
+                className="font-mono font-bold uppercase text-center"
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '140px' }}
               />
-              <button
-                type="button"
-                onClick={() => setShowSettingsSyncKey(!showSettingsSyncKey)}
-                title={showSettingsSyncKey ? 'Hide Key' : 'Reveal Key'}
-                style={{ 
-                  background: 'transparent', 
-                  border: 'none', 
-                  cursor: 'pointer',
-                  padding: '0 0.6rem 0 0.2rem',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                {showSettingsSyncKey ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+              {localSyncKey !== (settings.syncKey || '') && (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    if (onSaveSettings) onSaveSettings({ ...settings, syncKey: localSyncKey });
+                    setToastMsg('Supabase Sync Key updated!');
+                    setTimeout(() => setToastMsg(''), 2000);
+                  }}
+                >
+                  Save
+                </button>
+              )}
             </div>
 
-            {localSyncKey !== (settings.syncKey || '') && (
-              <button
-                type="button"
-                className="btn btn-primary p-2"
-                style={{ marginLeft: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={() => {
-                  onSaveSettings({ ...settings, syncKey: localSyncKey });
-                  setToastMsg('Sync Key updated!');
-                  setTimeout(() => setToastMsg(''), 1800);
-                }}
-                title="Save New Sync Key"
-              >
-                <Check size={16} />
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                const newRandom = generateRandomSyncKey();
+                setLocalSyncKey(newRandom);
+                if (onSaveSettings) onSaveSettings({ ...settings, syncKey: newRandom });
+                setToastMsg('Generated new Sync Key!');
+                setTimeout(() => setToastMsg(''), 2000);
+              }}
+            >
+              <RefreshCw size={14} />
+              <span>Generate Key</span>
+            </button>
           </div>
         </div>
       </section>

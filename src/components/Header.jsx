@@ -60,7 +60,7 @@ export default function Header({
           {/* Metrics & Status Pills */}
           <div className="header-metrics-group">
             {isSyncing && (
-              <div className="today-metric-pill sync-indicator-pill" title="Syncing with Cloud">
+              <div className="today-metric-pill sync-indicator-pill" title="Syncing with Supabase Realtime">
                 <RefreshCw size={14} className="sync-spin" />
                 <span className="text-xs font-semibold">Syncing</span>
               </div>
@@ -98,7 +98,7 @@ export default function Header({
               className={`icon-btn ${isSyncing ? 'sync-spin' : ''}`}
               onClick={onSyncCloud}
               disabled={isSyncing}
-              title="Force Cloud Sync"
+              title="Sync Cloud Data (Supabase Realtime)"
             >
               <RefreshCw size={18} />
             </button>
