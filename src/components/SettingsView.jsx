@@ -132,6 +132,23 @@ export default function SettingsView({
     exportStateJSON(snapshot);
   };
 
+  const [isDeletingCloud, setIsDeletingCloud] = useState(false);
+
+  const handleResetCloud = async () => {
+    const key = settings.syncKey || 'SHADOW-PAW-482';
+    if (window.confirm(`Are you sure you want to delete all cloud sync data stored under key "${key}" on Supabase? This action cannot be undone.`)) {
+      setIsDeletingCloud(true);
+      const ok = await deleteSupabaseSync(key);
+      setIsDeletingCloud(false);
+      if (ok) {
+        setToastMsg('Cloud data successfully deleted from Supabase!');
+      } else {
+        setToastMsg('Failed to delete cloud data. Check connection.');
+      }
+      setTimeout(() => setToastMsg(''), 3000);
+    }
+  };
+
   const handleReset = () => {
     if (onResetData) onResetData();
     else if (onResetAllData) onResetAllData();
