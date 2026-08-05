@@ -287,12 +287,16 @@ export default function App() {
     const localUnclaimed = Math.max(0, lifetimePoints - claimed);
     const finalUnclaimed = cloudUnclaimedPoints !== null ? Math.max(cloudUnclaimedPoints, localUnclaimed) : localUnclaimed;
     
-    await pushSyncData(syncKey, {
+    const ok = await pushSupabaseSync(syncKey, {
       ...appState,
       unclaimedVetoPoints: finalUnclaimed
     });
     setIsCloudSyncing(false);
-    alert('State successfully forced to cloud!');
+    if (ok) {
+      showToast('State successfully forced to Supabase cloud!', 'success');
+    } else {
+      showToast('Failed to force upload state to cloud', 'error');
+    }
   };
 
   const handleFinishSprint = (finishedSessionData) => {
