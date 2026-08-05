@@ -489,6 +489,7 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         isSyncing={isCloudSyncing}
         onSyncCloud={handleSyncCloud}
+        hasActiveSprint={Boolean(activeSprintState)}
       />
 
       <VetoRewardsModal

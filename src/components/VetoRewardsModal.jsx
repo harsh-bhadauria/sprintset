@@ -120,45 +120,23 @@ export default function VetoRewardsModal({
               <span>Transfer to Veto</span>
             </button>
 
-            <div className="secondary-veto-actions" style={{ gap: '0.65rem', marginTop: '0.65rem', display: 'flex', justifyContent: 'center' }}>
+            <div className="secondary-veto-actions">
               <button
                 type="button"
-                className="btn text-xs font-bold"
-                style={{
-                  background: copiedToast ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.05)',
-                  border: `1px solid ${copiedToast ? 'rgba(16, 185, 129, 0.5)' : 'rgba(16, 185, 129, 0.2)'}`,
-                  color: 'var(--emerald-main, #10b981)',
-                  padding: '0.5rem 1rem',
-                  borderRadius: 'var(--radius-full)',
-                  transition: 'all 0.2s ease',
-                  flex: 1
-                }}
+                className={`btn btn-secondary-veto btn-copy-link ${copiedToast ? 'copied' : ''}`}
                 onClick={handleCopyLink}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)'; e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.4)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = copiedToast ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.05)'; e.currentTarget.style.borderColor = copiedToast ? 'rgba(16, 185, 129, 0.5)' : 'rgba(16, 185, 129, 0.2)'; }}
               >
-                <Copy size={14} />
+                <Copy size={15} />
                 <span>{copiedToast ? 'Copied Deep Link!' : 'Copy Claim Link'}</span>
               </button>
 
               <button
                 type="button"
-                className="btn text-xs font-bold"
-                style={{
-                  background: isSyncing ? 'rgba(56, 189, 248, 0.15)' : 'rgba(56, 189, 248, 0.05)',
-                  border: `1px solid ${isSyncing ? 'rgba(56, 189, 248, 0.5)' : 'rgba(56, 189, 248, 0.2)'}`,
-                  color: '#38bdf8',
-                  padding: '0.5rem 1rem',
-                  borderRadius: 'var(--radius-full)',
-                  transition: 'all 0.2s ease',
-                  flex: 1
-                }}
+                className={`btn btn-secondary-veto btn-sync-veto ${isSyncing ? 'syncing' : ''}`}
                 onClick={handleSyncClick}
                 disabled={isSyncing}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)'; e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = isSyncing ? 'rgba(56, 189, 248, 0.15)' : 'rgba(56, 189, 248, 0.05)'; e.currentTarget.style.borderColor = isSyncing ? 'rgba(56, 189, 248, 0.5)' : 'rgba(56, 189, 248, 0.2)'; }}
               >
-                <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+                <RefreshCw size={15} className={isSyncing ? 'sync-spin' : ''} />
                 <span>{isSyncing ? 'Syncing...' : 'Sync Cloud'}</span>
               </button>
             </div>

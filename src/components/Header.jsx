@@ -11,14 +11,15 @@ export default function Header({
   settings = {}, 
   onToggleTheme,
   isSyncing = false,
-  onSyncCloud
+  onSyncCloud,
+  hasActiveSprint = false
 }) {
   const isDark = settings?.theme !== 'light';
 
   return (
-    <header className="header-container">
+    <header className={`header-container ${hasActiveSprint ? 'header-sprint-active' : ''}`}>
       <div className="header-content">
-        {/* Brand Logo with Dynamic Chroma Shift Animated Triangle */}
+        {/* Brand Logo */}
         <div className="brand-group" onClick={() => onSelectTab('sprint')}>
           <Triangle className="brand-icon" size={24} strokeWidth={1.75} />
           <div className="brand-text">
@@ -42,7 +43,7 @@ export default function Header({
             onClick={() => onSelectTab('bank')}
           >
             <Database size={18} />
-            <span>Question Bank</span>
+            <span>Bank</span>
           </button>
 
           <button 
@@ -54,59 +55,62 @@ export default function Header({
           </button>
         </nav>
 
-        {/* Right Metric Pill & Actions */}
-        <div className="header-right">
-          {/* Cloud Sync Indicator */}
-          {isSyncing && (
-            <div className="today-metric-pill sync-indicator-pill" title="Syncing with Cloud">
-              <RefreshCw size={14} className="sync-spin" />
-              <span className="text-xs font-semibold">Syncing</span>
-            </div>
-          )}
+        {/* Right Side Group (Metrics + Quick Actions) */}
+        <div className="header-right-group">
+          {/* Metrics & Status Pills */}
+          <div className="header-metrics-group">
+            {isSyncing && (
+              <div className="today-metric-pill sync-indicator-pill" title="Syncing with Cloud">
+                <RefreshCw size={14} className="sync-spin" />
+                <span className="text-xs font-semibold">Syncing</span>
+              </div>
+            )}
 
-          {/* Today's Focus Metric */}
-          <div className="today-metric-pill" title="Total focus minutes logged today">
-            <Clock size={15} className="text-amber" />
-            <span><strong>{todayFocusMinutes}m</strong> focused</span>
+            <div className="today-metric-pill" title="Total focus minutes logged today">
+              <Clock size={15} className="text-amber flex-shrink-0" />
+              <span><strong>{todayFocusMinutes}m</strong><span className="pill-text-long"> focused</span></span>
+            </div>
+
+            {vetoEnabled && (
+              <button 
+                type="button"
+                className="today-metric-pill veto-metric-pill"
+                onClick={onOpenVetoModal}
+                title="Veto Time Bank Rewards"
+              >
+                <PawPrint size={15} className="text-amber flex-shrink-0" />
+                <span><strong>+{vetoMinutes}m</strong><span className="pill-text-long"> Veto</span></span>
+              </button>
+            )}
           </div>
 
-          {/* Veto Cat Mascot Time Bank Metric */}
-          {vetoEnabled && (
+          {/* Quick Actions (Theme, Sync, Settings) */}
+          <div className="header-quick-actions">
             <button 
-              type="button"
-              className="today-metric-pill veto-metric-pill"
-              onClick={onOpenVetoModal}
-              title="Veto Time Bank Rewards"
+              className="icon-btn" 
+              onClick={onToggleTheme} 
+              title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
             >
-              <PawPrint size={15} className="text-amber" />
-              <span><strong>+{vetoMinutes}m</strong> Veto</span>
+              {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-          )}
 
-          <button 
-            className="icon-btn" 
-            onClick={onToggleTheme} 
-            title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-          >
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
+            <button 
+              className={`icon-btn ${isSyncing ? 'sync-spin' : ''}`}
+              onClick={onSyncCloud}
+              disabled={isSyncing}
+              title="Force Cloud Sync"
+            >
+              <RefreshCw size={18} />
+            </button>
 
-          <button 
-            className={`icon-btn ${isSyncing ? 'sync-spin' : ''}`}
-            onClick={onSyncCloud}
-            disabled={isSyncing}
-            title="Force Cloud Sync"
-          >
-            <RefreshCw size={18} />
-          </button>
-
-          <button 
-            className={`icon-btn ${activeTab === 'settings' ? 'active-icon' : ''}`}
-            onClick={() => onSelectTab('settings')} 
-            title="Settings"
-          >
-            <Settings size={18} />
-          </button>
+            <button 
+              className={`icon-btn ${activeTab === 'settings' ? 'active-icon' : ''}`}
+              onClick={() => onSelectTab('settings')} 
+              title="Settings"
+            >
+              <Settings size={18} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -128,6 +132,24 @@ export default function Header({
           align-items: center;
           justify-content: space-between;
           gap: 1rem;
+        }
+
+        .header-right-group {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .header-quick-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+
+        .header-metrics-group {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
 
         .brand-group {
@@ -203,12 +225,6 @@ export default function Header({
           box-shadow: var(--shadow-sm);
         }
 
-        .header-right {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
         .today-metric-pill {
           display: flex;
           align-items: center;
@@ -219,6 +235,7 @@ export default function Header({
           border-radius: var(--radius-full);
           font-size: 0.85rem;
           color: var(--text-secondary);
+          white-space: nowrap;
         }
 
         .sync-indicator-pill {
@@ -253,6 +270,7 @@ export default function Header({
           justify-content: center;
           cursor: pointer;
           transition: all var(--transition-fast);
+          flex-shrink: 0;
         }
 
         .icon-btn:hover, .icon-btn.active-icon {
@@ -261,15 +279,74 @@ export default function Header({
           background: var(--bg-card-hover);
         }
 
+        /* 2-Row Responsive Mobile Header */
         @media (max-width: 768px) {
-          .nav-btn span {
-            display: none;
+          .header-container.header-sprint-active .nav-tabs,
+          .header-container.header-sprint-active .header-metrics-group {
+            display: none !important;
           }
+          
+          .header-container {
+            padding: 0.5rem 0.75rem;
+          }
+
+          .header-content {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+          }
+
+          .header-right-group {
+            display: contents;
+          }
+
+          .brand-group {
+            order: 1;
+          }
+
+          .header-quick-actions {
+            order: 2;
+          }
+
           .brand-tagline {
             display: none;
           }
-          .today-metric-pill span {
-            font-size: 0.75rem;
+
+          .nav-tabs {
+            order: 3;
+            width: 100%;
+            justify-content: space-around;
+          }
+
+          .nav-btn {
+            flex: 1;
+            justify-content: center;
+            padding: 0.4rem 0.5rem;
+            font-size: 0.8rem;
+          }
+
+          .nav-btn span {
+            display: inline;
+          }
+
+          .header-metrics-group {
+            order: 4;
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .today-metric-pill {
+            flex: 1;
+            justify-content: center;
+            padding: 0.35rem 0.5rem;
+            font-size: 0.8rem;
+          }
+
+          .icon-btn {
+            width: 34px;
+            height: 34px;
           }
         }
       `}</style>

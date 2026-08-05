@@ -2252,15 +2252,56 @@ export default function QuestionBankManager({
         }
 
         @media (max-width: 768px) {
+          .bank-container {
+            width: calc(100% - 1.5rem) !important;
+            margin: 0.75rem auto !important;
+            padding: 1.25rem 1rem !important;
+            gap: 1.25rem !important;
+          }
+
           .bank-header {
             flex-direction: column;
-            align-items: flex-start;
+            align-items: stretch !important;
+            gap: 0.85rem !important;
           }
+
           .header-title-with-back {
             flex-direction: column;
             align-items: flex-start;
             gap: 0.5rem;
           }
+
+          .bank-header-actions {
+            width: 100%;
+            justify-content: flex-start;
+          }
+
+          .bank-controls {
+            flex-direction: column;
+            align-items: stretch !important;
+            gap: 0.75rem !important;
+          }
+
+          .search-box {
+            min-width: 100% !important;
+            width: 100% !important;
+          }
+
+          .filters-row {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .table-wrapper {
+            overflow-x: auto;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+          }
+
+          .bank-table {
+            min-width: 580px;
+          }
+
           .form-row {
             grid-template-columns: 1fr;
           }

@@ -366,18 +366,16 @@ export default function ActiveSprint({
         <div className="top-control-bar">
           <div className="top-left-sprint-metrics">
             <div className="sprint-metric-pill" title="Sprint Progress">
-              <Layers size={15} className="text-muted" />
-              <strong>Q {currentIndex + 1} of {queue.length}</strong>
+              <Layers size={15} className="text-muted flex-shrink-0" />
+              <span>Q <strong>{currentIndex + 1}</strong> of <strong>{queue.length}</strong></span>
             </div>
 
             <div className="sprint-metric-pill pts-pill-styled" title="Session Points Earned">
-              <Award size={16} className="text-amber" />
+              <Award size={16} className="text-amber flex-shrink-0" />
               <strong className={`text-amber ${ptsAnimTrigger ? 'counter-tween-pop' : ''}`}>
                 +{sessionPoints} pts
               </strong>
             </div>
-
-            {isPaused && <span className="pause-pill">PAUSED</span>}
           </div>
 
           <div className="top-icon-controls">
@@ -421,17 +419,17 @@ export default function ActiveSprint({
                   className="per-q-pill link-per-q-neutral"
                   title={currentQuestion.link ? 'Open Problem Page' : 'Search Problem on Google'}
                 >
-                  <ExternalLink size={14} className="text-muted" />
+                  <ExternalLink size={13} className="text-muted" />
                   <span className="text-secondary font-semibold">Link</span>
                 </a>
                 <span className="dot-sep">•</span>
                 <div className="per-q-pill pts-per-q">
-                  <Zap size={14} className="text-amber" />
-                  <span>Worth <strong className="text-gold">+{questionValue} pts</strong></span>
+                  <Zap size={13} className="text-amber" />
+                  <span><strong className="text-gold">+{questionValue} pts</strong></span>
                 </div>
                 <span className="dot-sep">•</span>
                 <div className="per-q-pill attempts-per-q">
-                  <RotateCcw size={14} className="text-muted" />
+                  <RotateCcw size={13} className="text-muted" />
                   <span>Attempts: <strong className={`text-primary ${attemptsAnimTrigger ? 'counter-tween-pop' : ''}`}>{attempts + 1}</strong></span>
                 </div>
               </div>
@@ -545,7 +543,16 @@ export default function ActiveSprint({
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: space-evenly;
+          justify-content: space-between;
+          width: 100%;
+          margin: 0.5rem 0;
+        }
+
+        .ringless-timer-centered {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           width: 100%;
         }
 
@@ -693,13 +700,15 @@ export default function ActiveSprint({
         .sprint-metric-pill {
           display: flex;
           align-items: center;
-          gap: 0.45rem;
+          gap: 0.4rem;
           background: var(--bg-input);
           border: 1px solid var(--border-subtle);
           padding: 0.35rem 0.85rem;
           border-radius: var(--radius-full);
           font-size: 0.82rem;
           color: var(--text-secondary);
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
         .pts-pill-styled {
@@ -724,8 +733,10 @@ export default function ActiveSprint({
           color: #f59e0b;
           font-weight: 700;
           font-size: 0.72rem;
-          padding: 0.15rem 0.6rem;
+          padding: 0.2rem 0.65rem;
           border-radius: var(--radius-full);
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
         .top-icon-controls {
@@ -894,7 +905,7 @@ export default function ActiveSprint({
           width: 100%;
           border: none;
           border-top: 1px solid var(--border-subtle);
-          margin: 1rem;
+          margin: 0.75rem 0 1.25rem 0;
         }
 
         .unified-question-title {
@@ -903,22 +914,24 @@ export default function ActiveSprint({
           font-weight: 800;
           color: var(--text-primary);
           line-height: 1.15;
-          margin: 0;
+          margin: 0 auto;
           padding: 0;
           max-width: 900px;
+          text-align: center;
         }
 
         /* Unified Per-Question Metadata Row with Neutral Link Pill */
         .per-question-meta-row {
           display: flex;
           align-items: center;
-          gap: 0.85rem;
+          gap: 0.75rem;
           background: var(--bg-input);
           border: 1px solid var(--border-subtle);
-          padding: 0.4rem 1.25rem;
+          padding: 0.4rem 1.1rem;
           border-radius: var(--radius-full);
-          font-size: 0.88rem;
+          font-size: 0.85rem;
           margin-top: 0.15rem;
+          white-space: nowrap;
         }
 
         .per-q-pill {
@@ -1041,27 +1054,36 @@ export default function ActiveSprint({
         }
         /* Responsive scaling for narrower viewports */
         @media (max-width: 768px) {
-          .time-display-massive-focal {
-            font-size: 5rem;
-          }
-          .unified-question-title {
-            font-size: 2rem;
+          .active-sprint-container {
+            width: calc(100% - 1.5rem) !important;
+            margin: 0.75rem auto !important;
+            min-height: calc(100vh - 74px) !important;
+            height: calc(100vh - 74px) !important;
           }
           .unified-sprint-card {
-            padding: 1.5rem 1.25rem 1.5rem 1.25rem;
+            padding: 1.25rem 1rem 1.25rem 1rem !important;
+            flex: 1 !important;
+          }
+          .time-display-massive-focal {
+            font-size: 6rem;
+          }
+          .unified-question-title {
+            font-size: 1.75rem;
           }
         }
 
         @media (max-width: 480px) {
           .time-display-massive-focal {
-            font-size: 3.5rem;
+            font-size: 5.5rem;
           }
           .unified-question-title {
-            font-size: 1.5rem;
+            font-size: 1.45rem;
           }
           .per-question-meta-row {
-            flex-wrap: wrap;
-            justify-content: center;
+            padding: 0.35rem 0.75rem;
+            gap: 0.4rem;
+            font-size: 0.78rem;
+            white-space: nowrap;
           }
         }
       `}</style>

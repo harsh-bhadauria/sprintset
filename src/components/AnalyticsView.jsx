@@ -594,9 +594,66 @@ export default function AnalyticsView({ sessions, questionStates, questions, tod
           text-transform: uppercase;
         }
 
-        @media (max-width: 800px) {
-          .analytics-kpi-grid { grid-template-columns: repeat(2, 1fr); }
-          .analytics-two-col { grid-template-columns: 1fr; }
+        @media (max-width: 768px) {
+          .analytics-container {
+            width: calc(100% - 1.5rem) !important;
+            margin: 0.75rem auto !important;
+            padding: 1.25rem 1rem !important;
+            gap: 1.25rem !important;
+          }
+
+          .analytics-title {
+            font-size: 1.45rem;
+          }
+
+          .analytics-kpi-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.65rem !important;
+          }
+
+          .kpi-box {
+            padding: 0.75rem 0.65rem !important;
+            gap: 0.55rem !important;
+          }
+
+          .kpi-icon-wrapper {
+            width: 32px;
+            height: 32px;
+          }
+
+          .kpi-box-val {
+            font-size: 1.15rem !important;
+          }
+
+          .kpi-box-lbl {
+            font-size: 0.72rem !important;
+          }
+
+          .analytics-two-col {
+            grid-template-columns: 1fr !important;
+            gap: 1.25rem !important;
+          }
+
+          .table-responsive-clean {
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+          }
+
+          .history-table {
+            min-width: 480px;
+          }
+
+          .history-table th, .history-table td {
+            padding: 0.65rem 0.75rem;
+            font-size: 0.8rem;
+            white-space: nowrap;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .analytics-kpi-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
         }
       `}</style>
     </div>

@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Clock, Filter, Play, CheckSquare, Square, Layers, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Filter, Play, CheckSquare, Square, Layers, Zap, ChevronDown, ChevronUp, BookOpen, AlertCircle } from 'lucide-react';
 import { generateSeed } from '../utils/prng';
 import { PRESET_ICONS } from '../data/presetIcons';
 import { formatTopicName } from './SessionSummary';
+import { getQuestionSheets } from './QuestionBankManager';
 
 export const PRESETS = [
   { id: 'speedy', name: 'Speedy', tag: '5 Easy', quota: { Easy: 5, Medium: 0, Hard: 0 } },
@@ -13,6 +14,64 @@ export const PRESETS = [
   { id: 'custom', name: 'Custom', tag: '? / ? / ?', quota: null }
 ];
 
+export function adaptQuota(reqQuota, availCounts) {
+  const req = {
+    Easy: reqQuota.Easy || 0,
+    Medium: reqQuota.Medium || 0,
+    Hard: reqQuota.Hard || 0
+  };
+  const avail = {
+    Easy: availCounts.Easy || 0,
+    Medium: availCounts.Medium || 0,
+    Hard: availCounts.Hard || 0
+  };
+
+  const totalTarget = req.Easy + req.Medium + req.Hard;
+
+  const result = {
+    Easy: Math.min(req.Easy, avail.Easy),
+    Medium: Math.min(req.Medium, avail.Medium),
+    Hard: Math.min(req.Hard, avail.Hard)
+  };
+
+  let remaining = totalTarget - (result.Easy + result.Medium + result.Hard);
+
+  const fillTier = (t) => {
+    if (remaining <= 0) return;
+    const capacity = avail[t] - result[t];
+    if (capacity > 0) {
+      const add = Math.min(remaining, capacity);
+      result[t] += add;
+      remaining -= add;
+    }
+  };
+
+  const hardShortfall = req.Hard - result.Hard;
+  const easyShortfall = req.Easy - result.Easy;
+  const medShortfall = req.Medium - result.Medium;
+
+  if (hardShortfall > 0) {
+    fillTier('Medium');
+    fillTier('Easy');
+  }
+  if (easyShortfall > 0) {
+    fillTier('Medium');
+    fillTier('Hard');
+  }
+  if (medShortfall > 0) {
+    fillTier('Easy');
+    fillTier('Hard');
+  }
+
+  if (remaining > 0) {
+    fillTier('Medium');
+    fillTier('Easy');
+    fillTier('Hard');
+  }
+
+  return result;
+}
+
 export default function StartSprintModal({ questions, settings = {}, onStartSprint }) {
   const timeWeights = settings.timeWeightsByDifficulty || { Easy: 4, Medium: 8, Hard: 15 };
 
@@ -20,11 +79,127 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
   const [customQuota, setCustomQuota] = useState({ Easy: 2, Medium: 2, Hard: 1 });
   const [isTopicsExpanded, setIsTopicsExpanded] = useState(false);
 
+  const availableSheets = useMemo(() => {
+    const set = new Set();
+    (questions || []).forEach(q => {
+      getQuestionSheets(q).forEach(s => set.add(s));
+    });
+    return Array.from(set).sort();
+  }, [questions]);
+
+  const [selectedSheet, setSelectedSheet] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sprintset_last_selected_sheet_v1');
+      return saved || 'ALL';
+    } catch (e) {
+      return 'ALL';
+    }
+  });
+
+  const handleSheetChange = (sheetName) => {
+    setSelectedSheet(sheetName);
+    try {
+      localStorage.setItem('sprintset_last_selected_sheet_v1', sheetName);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (selectedSheet !== 'ALL' && availableSheets.length > 0 && !availableSheets.includes(selectedSheet)) {
+      handleSheetChange('ALL');
+    }
+  }, [availableSheets, selectedSheet]);
+
+  const sheetScopedQuestions = useMemo(() => {
+    if (selectedSheet === 'ALL') return questions;
+    return (questions || []).filter(q => getQuestionSheets(q).includes(selectedSheet));
+  }, [questions, selectedSheet]);
+
+  const availCountsByDiff = useMemo(() => {
+    const counts = { Easy: 0, Medium: 0, Hard: 0 };
+    sheetScopedQuestions.forEach(q => {
+      if (q.difficulty && counts[q.difficulty] !== undefined) {
+        counts[q.difficulty] += 1;
+      }
+    });
+    return counts;
+  }, [sheetScopedQuestions]);
+
+  const totalScopeAvailable = useMemo(() => {
+    return sheetScopedQuestions.length;
+  }, [sheetScopedQuestions]);
+
+  const presetStatuses = useMemo(() => {
+    const statuses = {};
+    PRESETS.forEach(preset => {
+      if (preset.id === 'custom') {
+        statuses.custom = {
+          disabled: false,
+          isAdapted: false,
+          effectiveQuota: customQuota,
+          displayTag: '? / ? / ?',
+          reason: ''
+        };
+        return;
+      }
+
+      const req = preset.quota;
+      const targetN = (req.Easy || 0) + (req.Medium || 0) + (req.Hard || 0);
+
+      if (totalScopeAvailable < targetN) {
+        statuses[preset.id] = {
+          disabled: true,
+          isAdapted: false,
+          effectiveQuota: req,
+          displayTag: preset.tag,
+          reason: `Not enough questions in this sheet for this preset (requires ${targetN} questions, only ${totalScopeAvailable} available)`
+        };
+      } else {
+        const isFullyFulfillable = 
+          availCountsByDiff.Easy >= (req.Easy || 0) &&
+          availCountsByDiff.Medium >= (req.Medium || 0) &&
+          availCountsByDiff.Hard >= (req.Hard || 0);
+
+        if (isFullyFulfillable) {
+          statuses[preset.id] = {
+            disabled: false,
+            isAdapted: false,
+            effectiveQuota: req,
+            displayTag: preset.tag,
+            reason: ''
+          };
+        } else {
+          const adapted = adaptQuota(req, availCountsByDiff);
+          const adaptedTag = `${adapted.Easy}E / ${adapted.Medium}M / ${adapted.Hard}H`;
+          statuses[preset.id] = {
+            disabled: false,
+            isAdapted: true,
+            effectiveQuota: adapted,
+            displayTag: adaptedTag,
+            reason: 'Adapted to match available sheet question counts'
+          };
+        }
+      }
+    });
+    return statuses;
+  }, [availCountsByDiff, totalScopeAvailable, customQuota]);
+
+  useEffect(() => {
+    const current = presetStatuses[selectedPreset];
+    if (current && current.disabled) {
+      const firstValid = PRESETS.find(p => !presetStatuses[p.id]?.disabled);
+      if (firstValid) {
+        setSelectedPreset(firstValid.id);
+      }
+    }
+  }, [presetStatuses, selectedPreset]);
+
   const activeQuota = useMemo(() => {
-    if (selectedPreset === 'custom') return customQuota;
-    const p = PRESETS.find(p => p.id === selectedPreset);
-    return p ? p.quota : { Easy: 2, Medium: 2, Hard: 1 };
-  }, [selectedPreset, customQuota]);
+    const current = presetStatuses[selectedPreset];
+    if (current && !current.disabled) {
+      return current.effectiveQuota;
+    }
+    return selectedPreset === 'custom' ? customQuota : { Easy: 2, Medium: 2, Hard: 1 };
+  }, [selectedPreset, presetStatuses, customQuota]);
 
   const totalQuestionsQuota = (activeQuota.Easy || 0) + (activeQuota.Medium || 0) + (activeQuota.Hard || 0);
 
@@ -47,15 +222,23 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
   }, [suggestedMinutes, userEditedDuration]);
 
   const allTopics = useMemo(() => {
-    const set = new Set(questions.map(q => q.topic || 'General'));
+    const set = new Set(sheetScopedQuestions.map(q => q.topic || 'General'));
     return Array.from(set).sort();
-  }, [questions]);
+  }, [sheetScopedQuestions]);
 
   const [selectedTopics, setSelectedTopics] = useState(allTopics);
 
-  const availablePoolCount = useMemo(() => {
-    return questions.filter(q => selectedTopics.length === 0 || selectedTopics.includes(q.topic || 'General')).length;
-  }, [questions, selectedTopics]);
+  useEffect(() => {
+    setSelectedTopics(allTopics);
+  }, [allTopics]);
+
+  const matchingQuestions = useMemo(() => {
+    return sheetScopedQuestions.filter(q => {
+      return selectedTopics.length === 0 || selectedTopics.includes(q.topic || 'General');
+    });
+  }, [sheetScopedQuestions, selectedTopics]);
+
+  const availablePoolCount = matchingQuestions.length;
 
   const toggleTopic = (topic) => {
     if (selectedTopics.includes(topic)) {
@@ -75,13 +258,9 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
     }
 
     if (availablePoolCount === 0) {
-      alert('No questions match your selected topic filters. Please expand your topic selection.');
+      alert('No questions match your selected sheet and topic filters. Please expand your selection.');
       return;
     }
-
-    const matchingQuestions = questions.filter(q => {
-      return selectedTopics.length === 0 || selectedTopics.includes(q.topic || 'General');
-    });
 
     const seed = generateSeed();
 
@@ -91,6 +270,7 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
       quota: activeQuota,
       totalQuestionsQuota,
       filters: {
+        sheet: selectedSheet,
         topics: selectedTopics,
         presetId: selectedPreset
       },
@@ -130,7 +310,38 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
           </div>
           <div>
             <h2 className="setup-title">Start a DSA Sprint</h2>
-            <p className="setup-subtitle">Select a difficulty preset, adjust duration, and launch.</p>
+            <p className="setup-subtitle">Select a question sheet scope, difficulty preset, adjust duration, and launch.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Prominent Question Sheet Scope Selector Row */}
+      <div className="sheet-scope-prominent-card glass-card">
+        <div className="sheet-scope-header">
+          <div className="sheet-scope-title-flex">
+            <BookOpen size={20} className="text-amber" />
+            <div>
+              <h3 className="sheet-scope-heading">Question Sheet Scope</h3>
+              <p className="sheet-scope-subtext">Select a specific sheet to scope question availability and preset distribution</p>
+            </div>
+          </div>
+
+          <div className="sheet-scope-dropdown-container">
+            <select
+              className="sheet-scope-prominent-select"
+              value={selectedSheet}
+              onChange={(e) => handleSheetChange(e.target.value)}
+            >
+              <option value="ALL">All Sheets ({questions.length} total questions)</option>
+              {availableSheets.map(sheetName => {
+                const count = questions.filter(q => getQuestionSheets(q).includes(sheetName)).length;
+                return (
+                  <option key={sheetName} value={sheetName}>
+                    {sheetName} ({count} questions)
+                  </option>
+                );
+              })}
+            </select>
           </div>
         </div>
       </div>
@@ -148,18 +359,27 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
             {PRESETS.map(preset => {
               const isSelected = selectedPreset === preset.id;
               const IconComp = PRESET_ICONS[preset.id] || Zap;
+              const status = presetStatuses[preset.id] || {};
+              const { disabled, isAdapted, displayTag, reason } = status;
+              const sheetDisplayName = selectedSheet === 'ALL' ? 'Current Pool' : selectedSheet;
+              const adaptedTooltip = `Adapted — ${sheetDisplayName} doesn't have enough questions for the standard ${preset.name} quota (${preset.tag})`;
+
               return (
                 <button
                   key={preset.id}
                   type="button"
-                  className={`square-preset-card ${isSelected ? 'selected' : ''}`}
-                  onClick={() => setSelectedPreset(preset.id)}
+                  disabled={disabled}
+                  title={disabled ? reason : (isAdapted ? adaptedTooltip : '')}
+                  className={`square-preset-card ${isSelected ? 'selected' : ''} ${disabled ? 'preset-disabled' : ''} ${isAdapted ? 'preset-adapted' : ''}`}
+                  onClick={() => {
+                    if (!disabled) setSelectedPreset(preset.id);
+                  }}
                 >
                   <div className="preset-icon-container">
                     <IconComp size={30} className={`preset-icon-theme ${isSelected ? 'icon-selected' : 'icon-unselected'}`} />
                   </div>
-                  <span className="preset-name">{preset.name}</span>
-                  <span className="preset-compact-tag">{preset.tag}</span>
+                  <span className="preset-name">{preset.name}{isAdapted ? '*' : ''}</span>
+                  <span className="preset-compact-tag">{displayTag}</span>
                 </button>
               );
             })}
@@ -422,6 +642,81 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
         .setup-header {
           border-bottom: 1px solid var(--border-subtle);
           padding-bottom: 1.25rem;
+        }
+
+        /* Prominent Sheet Scope Card */
+        .sheet-scope-prominent-card {
+          padding: 1rem 1.25rem;
+          background: var(--bg-card);
+          border: 1.5px solid var(--border-subtle);
+          border-radius: var(--radius-lg);
+          transition: border-color var(--transition-fast);
+        }
+
+        .sheet-scope-prominent-card:hover {
+          border-color: rgba(var(--accent-rgb), 0.35);
+        }
+
+        .sheet-scope-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+
+        .sheet-scope-title-flex {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .sheet-scope-heading {
+          font-family: var(--font-heading);
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .sheet-scope-subtext {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+        }
+
+        .sheet-scope-dropdown-container {
+          min-width: 260px;
+        }
+
+        .sheet-scope-prominent-select {
+          width: 100%;
+          appearance: none;
+          background: var(--bg-input);
+          border: 1.5px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          color: var(--text-primary);
+          font-family: var(--font-sans);
+          font-size: 0.92rem;
+          font-weight: 700;
+          padding: 0.55rem 2.25rem 0.55rem 0.9rem;
+          cursor: pointer;
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 0.75rem center;
+        }
+
+        .sheet-scope-prominent-select:hover,
+        .sheet-scope-prominent-select:focus {
+          border-color: var(--amber-main);
+          box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
+        }
+
+        .sheet-scope-prominent-select option {
+          background: #161b26;
+          color: var(--text-primary);
+          font-weight: 600;
+          padding: 0.5rem;
         }
 
         .setup-title-group {
@@ -817,6 +1112,14 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
 
         .topics-grid-fullwidth {
           display: grid;
+
+        .square-preset-card.preset-disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
+          filter: grayscale(0.85);
+          border-color: var(--border-subtle) !important;
+          box-shadow: none !important;
+        }
           grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
           gap: 0.5rem;
           max-height: 200px;
@@ -875,6 +1178,12 @@ export default function StartSprintModal({ questions, settings = {}, onStartSpri
         }
 
         @media (max-width: 768px) {
+          .sprint-setup-container {
+            width: calc(100% - 1.5rem) !important;
+            margin: 0.75rem auto !important;
+            padding: 1.25rem 1rem !important;
+            gap: 1.25rem !important;
+          }
           .setup-two-col-grid {
             grid-template-columns: 1fr;
           }

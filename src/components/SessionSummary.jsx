@@ -426,6 +426,7 @@ export default function SessionSummary({
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-wrap: wrap;
           gap: 0.75rem;
         }
 
@@ -727,6 +728,74 @@ export default function SessionSummary({
 
         .question-link-cell:hover .question-link-icon {
           opacity: 1;
+        }
+
+        /* Mobile Responsive Media Queries for Session Summary */
+        @media (max-width: 768px) {
+          .summary-container {
+            width: calc(100% - 1.5rem) !important;
+            margin: 0.75rem auto !important;
+            padding: 1.25rem 1rem !important;
+            gap: 1.25rem !important;
+          }
+
+          .banner-title-row {
+            flex-direction: column;
+            gap: 0.4rem;
+          }
+
+          .summary-title {
+            font-size: 1.45rem;
+          }
+
+          .kpi-summary-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.65rem;
+          }
+
+          .kpi-card {
+            padding: 0.85rem 0.75rem;
+            gap: 0.65rem;
+          }
+
+          .kpi-icon-group {
+            width: 36px;
+            height: 36px;
+          }
+
+          .kpi-value {
+            font-size: 1.15rem;
+          }
+
+          .kpi-label {
+            font-size: 0.72rem;
+          }
+
+          .summary-actions-top {
+            flex-direction: column-reverse;
+            width: 100%;
+            gap: 0.6rem;
+          }
+
+          .summary-actions-top .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .breakdown-table {
+            min-width: 520px;
+          }
+
+          .breakdown-table th, .breakdown-table td {
+            padding: 0.65rem 0.75rem;
+            font-size: 0.82rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .kpi-summary-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>

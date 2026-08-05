@@ -834,14 +834,58 @@ export default function SettingsView({
         }
 
         @media (max-width: 768px) {
+          .settings-container {
+            width: calc(100% - 1.5rem) !important;
+            margin: 0.75rem auto !important;
+            padding: 1.25rem 1rem !important;
+            gap: 1.25rem !important;
+          }
+
+          .settings-header {
+            flex-direction: column;
+            align-items: stretch !important;
+            gap: 0.85rem !important;
+          }
+
+          .settings-header-actions {
+            width: 100%;
+          }
+
+          .settings-header-actions .btn {
+            width: 100%;
+            justify-content: center;
+          }
+
           .setting-single-line-row {
             flex-direction: column;
             align-items: flex-start;
             gap: 0.85rem;
           }
+
           .setting-controls-right {
             width: 100%;
             flex-wrap: wrap;
+            justify-content: space-between;
+          }
+
+          .button-group-side {
+            width: 100%;
+            flex-wrap: wrap;
+          }
+
+          .button-group-side .btn {
+            flex: 1;
+            justify-content: center;
+          }
+
+          .unsaved-banner {
+            flex-direction: column;
+            align-items: stretch !important;
+            gap: 0.75rem !important;
+          }
+
+          .unsaved-actions {
+            justify-content: flex-end;
           }
         }
       `}</style>
