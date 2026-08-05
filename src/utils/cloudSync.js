@@ -13,24 +13,21 @@ const SYNC_SERVERS = [
 ];
 
 /**
- * SHA-256 hash helper to turn user key into unguessable 24-char channel ID
+ * Synchronous, deterministic hash helper to guarantee identical 24-char channel ID
+ * across all HTTP/HTTPS browsers, Node, and mobile contexts.
  */
-async function getHashedTopic(syncKey) {
-  const key = (syncKey || 'ANONYMOUS-PAW').trim().toUpperCase();
-  try {
-    const msgUint8 = new TextEncoder().encode(`sprintset_private_v1_${key}`);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return `sprintset_sync_${hex.slice(0, 24)}`;
-  } catch (err) {
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) {
-      hash = (hash << 5) - hash + key.charCodeAt(i);
-      hash |= 0;
-    }
-    return `sprintset_sync_priv_${Math.abs(hash)}`;
+function getHashedTopic(syncKey) {
+  const key = `sprintset_v1_${(syncKey || 'ANONYMOUS-PAW').trim().toUpperCase()}`;
+  let h1 = 0x811c9dc5;
+  let h2 = 5381;
+  for (let i = 0; i < key.length; i++) {
+    const code = key.charCodeAt(i);
+    h1 = (h1 ^ code) * 16777619;
+    h2 = ((h2 << 5) + h2) ^ code;
   }
+  const hex1 = Math.abs(h1).toString(16).padStart(8, '0');
+  const hex2 = Math.abs(h2).toString(16).padStart(8, '0');
+  return `sprintsetsync_${hex1}${hex2}`;
 }
 
 /**
@@ -38,8 +35,7 @@ async function getHashedTopic(syncKey) {
  */
 export async function pushSyncData(syncKey, payload) {
   if (!syncKey || !syncKey.trim()) return false;
-  const key = syncKey.trim().toUpperCase();
-  const topic = await getHashedTopic(key);
+  const topic = getHashedTopic(syncKey);
 
   const jsonString = JSON.stringify({
     ...payload,
@@ -83,8 +79,7 @@ export async function pushSyncData(syncKey, payload) {
  */
 export async function pullSyncData(syncKey) {
   if (!syncKey || !syncKey.trim()) return null;
-  const key = syncKey.trim().toUpperCase();
-  const topic = await getHashedTopic(key);
+  const topic = getHashedTopic(syncKey);
 
   for (const serverUrl of SYNC_SERVERS) {
     try {
@@ -108,7 +103,7 @@ export async function pullSyncData(syncKey) {
             } 
             // Direct message body format
             else if (item.message) {
-              const parsed = JSON.parse(item.message);
+              const parsed = typeof item.message === 'string' ? JSON.parse(item.message) : item.message;
               if (parsed && typeof parsed === 'object') {
                 return parsed;
               }
