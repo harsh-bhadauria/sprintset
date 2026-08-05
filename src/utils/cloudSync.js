@@ -7,6 +7,11 @@ export function generateRandomSyncKey() {
 
 export const DEFAULT_SYNC_KEY = '';
 
+const SYNC_SERVERS = [
+  'https://ntfy.adminforge.de',
+  'https://ntfy.sh'
+];
+
 /**
  * SHA-256 hash helper to turn user key into unguessable 24-char channel ID
  */
@@ -29,80 +34,96 @@ async function getHashedTopic(syncKey) {
 }
 
 /**
- * Push current Veto points & full app state to cloud
+ * Push current Veto points & full app state to cloud (with failover servers)
  */
 export async function pushSyncData(syncKey, payload) {
   if (!syncKey || !syncKey.trim()) return false;
   const key = syncKey.trim().toUpperCase();
   const topic = await getHashedTopic(key);
-  const url = `https://ntfy.sh/${topic}`;
 
-  try {
-    const res = await fetch(url, {
-      method: 'PUT',
-      keepalive: true,
-      headers: {
-        'Title': 'SprintsetPrivateSync',
-        'Filename': 'sync_state.json'
-      },
-      body: JSON.stringify({
-        ...payload,
-        syncKey: 'REDACTED',
-        updatedAt: new Date().toISOString()
-      })
-    });
-    return res.ok;
-  } catch (err) {
-    console.error('Cloud Push Sync Error:', err);
-    return false;
+  const jsonString = JSON.stringify({
+    ...payload,
+    syncKey: 'REDACTED',
+    updatedAt: new Date().toISOString()
+  });
+
+  for (const serverUrl of SYNC_SERVERS) {
+    try {
+      // 1. Try sending direct JSON POST message body
+      const res = await fetch(`${serverUrl}/${topic}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: jsonString
+      });
+
+      if (res.ok) return true;
+
+      // 2. If message body POST fails, try PUT attachment fallback
+      const attachRes = await fetch(`${serverUrl}/${topic}`, {
+        method: 'PUT',
+        keepalive: true,
+        headers: {
+          'Title': 'SprintsetPrivateSync',
+          'Filename': 'sync_state.json'
+        },
+        body: jsonString
+      });
+
+      if (attachRes.ok) return true;
+    } catch (err) {
+      console.warn(`Cloud Push failed on ${serverUrl}, trying fallback...`, err);
+    }
   }
+
+  return false;
 }
 
 /**
- * Pull latest Veto points & full app state from cloud
+ * Pull latest Veto points & full app state from cloud (with failover servers)
  */
 export async function pullSyncData(syncKey) {
   if (!syncKey || !syncKey.trim()) return null;
   const key = syncKey.trim().toUpperCase();
   const topic = await getHashedTopic(key);
-  const url = `https://ntfy.sh/${topic}/json?poll=1`;
 
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const text = await res.text();
-    const lines = text.trim().split('\n').filter(Boolean);
-    
-    let latestPayload = null;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const item = JSON.parse(lines[i]);
-        if (item && item.event === 'message') {
-          // New Format: Always an attachment to bypass 4KB limit
-          if (item.attachment && item.attachment.url) {
-            const fileRes = await fetch(item.attachment.url);
-            if (fileRes.ok) {
-              const parsed = await fileRes.json();
-              if (parsed && typeof parsed === 'object') return parsed;
-            }
-          } 
-          // Old Format: Inline JSON (fails if >4KB)
-          else if (item.message) {
-            const parsed = JSON.parse(item.message);
-            if (parsed && typeof parsed === 'object') {
-              return parsed;
+  for (const serverUrl of SYNC_SERVERS) {
+    try {
+      const res = await fetch(`${serverUrl}/${topic}/json?poll=1`);
+      if (!res.ok) continue;
+
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(Boolean);
+
+      for (let i = lines.length - 1; i >= 0; i--) {
+        try {
+          const item = JSON.parse(lines[i]);
+          if (item && item.event === 'message') {
+            // Attachment format
+            if (item.attachment && item.attachment.url) {
+              const fileRes = await fetch(item.attachment.url);
+              if (fileRes.ok) {
+                const parsed = await fileRes.json();
+                if (parsed && typeof parsed === 'object') return parsed;
+              }
+            } 
+            // Direct message body format
+            else if (item.message) {
+              const parsed = JSON.parse(item.message);
+              if (parsed && typeof parsed === 'object') {
+                return parsed;
+              }
             }
           }
+        } catch (e) {
+          // Skip malformed lines
         }
-      } catch (e) {
-        // Skip malformed lines
       }
+    } catch (err) {
+      console.warn(`Cloud Pull failed on ${serverUrl}, trying fallback...`, err);
     }
-    return null;
-  } catch (err) {
-    console.error('Cloud Pull Sync Error:', err);
-    return null;
   }
+
+  return null;
 }
 
 /**

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 import Header from './components/Header';
 import StartSprintModal from './components/StartSprintModal';
 import ActiveSprint from './components/ActiveSprint';
@@ -208,35 +209,53 @@ export default function App() {
     setCloudUnclaimedPoints(0);
   };
 
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success', duration = 3000) => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), duration);
+  };
+
   const handleSyncCloud = async () => {
     setIsCloudSyncing(true);
-    // 1. Pull remote first
-    const remote = await pullSyncData(syncKey);
-    let finalStateToPush = appState;
-    
-    // 2. Perform smart merge synchronously
-    if (remote) {
-      finalStateToPush = getMergedState(appState, remote);
-      setAppState(finalStateToPush);
+    try {
+      // 1. Pull remote first
+      const remote = await pullSyncData(syncKey);
+      let finalStateToPush = appState;
+      
+      // 2. Perform smart merge synchronously
+      if (remote) {
+        finalStateToPush = getMergedState(appState, remote);
+        setAppState(finalStateToPush);
+      }
+      
+      // Recalculate true unclaimed points with merged state
+      const mergedLifetimePoints = (finalStateToPush.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
+      const mergedClaimed = finalStateToPush.claimedVetoPoints || 0;
+      const mergedLocalUnclaimed = Math.max(0, mergedLifetimePoints - mergedClaimed);
+      
+      let finalUnclaimed = mergedLocalUnclaimed;
+      if (remote && remote.unclaimedVetoPoints !== undefined) {
+        setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
+        finalUnclaimed = Math.max(mergedLocalUnclaimed, remote.unclaimedVetoPoints);
+      }
+      
+      // 3. Push the merged state back to cloud
+      const pushSuccess = await pushSyncData(syncKey, {
+        ...finalStateToPush,
+        unclaimedVetoPoints: finalUnclaimed
+      });
+
+      if (pushSuccess || remote) {
+        showToast('Cloud Sync successful!', 'success');
+      } else {
+        showToast('Cloud Sync failed: Server rate-limited or offline', 'error');
+      }
+    } catch (err) {
+      showToast('Cloud Sync failed', 'error');
+    } finally {
+      setIsCloudSyncing(false);
     }
-    
-    // Recalculate true unclaimed points with merged state
-    const mergedLifetimePoints = (finalStateToPush.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
-    const mergedClaimed = finalStateToPush.claimedVetoPoints || 0;
-    const mergedLocalUnclaimed = Math.max(0, mergedLifetimePoints - mergedClaimed);
-    
-    let finalUnclaimed = mergedLocalUnclaimed;
-    if (remote && remote.unclaimedVetoPoints !== undefined) {
-      setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
-      finalUnclaimed = Math.max(mergedLocalUnclaimed, remote.unclaimedVetoPoints);
-    }
-    
-    // 3. Push the perfect merged state back to cloud
-    await pushSyncData(syncKey, {
-      ...finalStateToPush,
-      unclaimedVetoPoints: finalUnclaimed
-    });
-    setIsCloudSyncing(false);
   };
 
   // Calculate today's focus metrics for header pill and analytics overview
@@ -476,7 +495,15 @@ export default function App() {
   };
 
   return (
-    <div className="app-layout">
+    <div className="app-container">
+      {/* Floating Global Toast Banner */}
+      {toast && (
+        <div className={`global-toast-banner toast-${toast.type}`}>
+          {toast.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+          <span>{toast.message}</span>
+        </div>
+      )}
+
       {/* Top Header Navigation */}
       <Header
         activeTab={activeTab}

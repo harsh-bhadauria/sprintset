@@ -623,6 +623,41 @@ select.input-field-full option {
   border-color: rgba(56, 189, 248, 0.5);
 }
 
+/* Floating Global Toast Banner */
+.global-toast-banner {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: fadeInDown 0.25s ease-out;
+}
+
+.toast-success {
+  background: rgba(16, 185, 129, 0.95);
+  color: #ffffff;
+  border: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+.toast-error {
+  background: rgba(239, 68, 68, 0.95);
+  color: #ffffff;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translate(-50%, -12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 @media (max-width: 480px) {
   .veto-modal-card {
     padding: 1.25rem 1rem !important;
