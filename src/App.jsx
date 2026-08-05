@@ -74,7 +74,8 @@ export default function App() {
       const localTime = prev.settings?.updatedAtMs || 0;
       const remoteTime = remotePayload.settings.updatedAtMs || 0;
       
-      if (remoteTime > localTime) {
+      // Accept remote settings if remote is newer OR equal OR local has no timestamp
+      if (remoteTime >= localTime || !prev.settings?.updatedAtMs) {
         nextState.settings = { ...prev.settings, ...remotePayload.settings };
       }
     }
@@ -118,6 +119,8 @@ export default function App() {
     setAppState(prev => getMergedState(prev, remotePayload));
   };
 
+  const [isInitialPullDone, setIsInitialPullDone] = useState(false);
+
   // Auto-sync Cloud on initial load & key change
   useEffect(() => {
     setIsCloudSyncing(true);
@@ -126,11 +129,14 @@ export default function App() {
         performSmartMerge(remote);
       }
       setIsCloudSyncing(false);
+      setIsInitialPullDone(true);
     });
   }, [syncKey]);
 
   // Auto-sync Cloud when sessions or key settings change
   useEffect(() => {
+    if (!isInitialPullDone) return;
+
     const pushCurrentState = async () => {
       setIsCloudSyncing(true);
       await pushSyncData(syncKey, {
@@ -140,11 +146,8 @@ export default function App() {
       setIsCloudSyncing(false);
     };
 
-    // Prevent pushing empty state on first load if we are waiting for pull
-    if (appState.sessions && appState.sessions.length > 0) {
-      pushCurrentState();
-    }
-  }, [appState.sessions?.length, appState.claimedVetoPoints, appState.settings?.updatedAtMs, syncKey]);
+    pushCurrentState();
+  }, [isInitialPullDone, appState.sessions?.length, appState.claimedVetoPoints, appState.settings?.updatedAtMs, syncKey]);
 
   // Push on visibility hidden (tab close / switch)
   const appStateRef = useRef(appState);
