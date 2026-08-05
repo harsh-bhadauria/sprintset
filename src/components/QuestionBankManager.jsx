@@ -160,37 +160,41 @@ export const getRecentQuestionOutcomes = (questionId, sessions = [], questionSta
  * Case-insensitive match on question name merges target sheet into existing question's sheets array.
  */
 export const mergeImportedQuestions = (existingQuestions, importedItems, targetSheetOverride = null) => {
-  const updatedQuestions = [...existingQuestions];
+  const existingMap = new Map();
+  existingQuestions.forEach(q => {
+    const normName = String(q.name || '').trim().toLowerCase();
+    if (normName && !existingMap.has(normName)) {
+      existingMap.set(normName, q);
+    }
+  });
+
+  const merged = [];
+  const processedNames = new Set();
 
   importedItems.forEach(imported => {
     const importedName = String(imported.name || '').trim().toLowerCase();
-    if (!importedName) return;
+    if (!importedName || processedNames.has(importedName)) return;
 
-    const existingIndex = updatedQuestions.findIndex(
-      q => String(q.name || '').trim().toLowerCase() === importedName
-    );
-
+    processedNames.add(importedName);
     const sheetToAdd = targetSheetOverride || (imported.sheets && imported.sheets[0]) || imported.sheet || 'Default';
 
-    if (existingIndex !== -1) {
-      // Duplicate match found -> add sheet to existing question's sheets array without duplicates
-      const existing = updatedQuestions[existingIndex];
+    if (existingMap.has(importedName)) {
+      const existing = existingMap.get(importedName);
       const currentSheets = getQuestionSheets(existing);
       const newSheets = Array.from(new Set([...currentSheets, sheetToAdd]));
 
-      updatedQuestions[existingIndex] = {
+      merged.push({
         ...existing,
         sheets: newSheets,
         link: existing.link || imported.link || '',
         topic: existing.topic || imported.topic || 'General'
-      };
+      });
     } else {
-      // New question creation
       const newSheets = targetSheetOverride
         ? [targetSheetOverride]
         : (imported.sheets && imported.sheets.length > 0 ? imported.sheets : [imported.sheet || 'Default']);
 
-      updatedQuestions.push({
+      merged.push({
         id: imported.id || `q-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         name: String(imported.name).trim(),
         topic: String(imported.topic || 'General').trim(),
@@ -201,7 +205,15 @@ export const mergeImportedQuestions = (existingQuestions, importedItems, targetS
     }
   });
 
-  return updatedQuestions;
+  // Retain existing questions that were not part of this imported list
+  existingQuestions.forEach(q => {
+    const normName = String(q.name || '').trim().toLowerCase();
+    if (normName && !processedNames.has(normName)) {
+      merged.push(q);
+    }
+  });
+
+  return merged;
 };
 
 export default function QuestionBankManager({
@@ -562,6 +574,44 @@ export default function QuestionBankManager({
     if (window.confirm('Are you sure you want to delete this question?')) {
       onUpdateQuestions(questions.filter(q => q.id !== id));
     }
+  };
+
+  // Rename Sheet Handler
+  const handleRenameSheet = (oldSheetName) => {
+    if (!oldSheetName || oldSheetName === 'ALL') return;
+    const newName = window.prompt(`Rename sheet "${oldSheetName}" to:`, oldSheetName);
+    if (!newName || !newName.trim() || newName.trim() === oldSheetName) return;
+    
+    const cleanNewName = newName.trim();
+    
+    // Update questions: Replace oldSheetName with cleanNewName in every question's sheets array
+    const updatedQuestions = questions.map(q => {
+      const sheets = getQuestionSheets(q);
+      if (sheets.includes(oldSheetName)) {
+        const nextSheets = Array.from(new Set(sheets.map(s => s === oldSheetName ? cleanNewName : s)));
+        return {
+          ...q,
+          sheets: nextSheets
+        };
+      }
+      return q;
+    });
+
+    // Update customSheets list
+    const updatedCustomSheets = customSheets.map(s => s === oldSheetName ? cleanNewName : s);
+    if (!updatedCustomSheets.includes(cleanNewName)) {
+      updatedCustomSheets.push(cleanNewName);
+    }
+    saveCustomSheets(updatedCustomSheets);
+
+    onUpdateQuestions(updatedQuestions);
+
+    if (selectedSheetView === oldSheetName) {
+      setSelectedSheetView(cleanNewName);
+    }
+
+    setIsSheetMenuOpen(false);
+    alert(`Sheet "${oldSheetName}" successfully renamed to "${cleanNewName}"!`);
   };
 
   // Delete Sheet: Only delete fully-orphaned questions!
@@ -949,6 +999,15 @@ export default function QuestionBankManager({
                         </button>
 
                         <div className="dropdown-divider" />
+
+                        <button
+                          type="button"
+                          className="menu-item-btn"
+                          onClick={() => handleRenameSheet(selectedSheetView)}
+                        >
+                          <Edit2 size={15} />
+                          <span>Rename Sheet</span>
+                        </button>
 
                         <button
                           type="button"
