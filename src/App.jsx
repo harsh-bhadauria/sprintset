@@ -196,10 +196,35 @@ export default function App() {
 
   const handleClaimPoints = (claimedAmt) => {
     const nextClaimed = claimedVetoPoints + claimedAmt;
-    setAppState(prev => ({
-      ...prev,
-      claimedVetoPoints: nextClaimed
-    }));
+    
+    // Update local app state
+    setAppState(prev => {
+      const nextState = {
+        ...prev,
+        claimedVetoPoints: nextClaimed
+      };
+
+      // Push sync silently if enabled
+      if (syncKey) {
+        const lifetimePoints = (nextState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
+        const localUnclaimed = Math.max(0, lifetimePoints - nextClaimed);
+        const finalUnclaimed = cloudUnclaimedPoints !== null 
+          ? Math.max(0, cloudUnclaimedPoints - claimedAmt) 
+          : localUnclaimed;
+
+        pushSupabaseSync(syncKey, {
+          ...nextState,
+          unclaimedVetoPoints: finalUnclaimed
+        }).catch(err => console.error('Error syncing veto claim to cloud:', err));
+      }
+
+      return nextState;
+    });
+
+    // Instantly update local cloud cache to force UI reset
+    if (cloudUnclaimedPoints !== null) {
+      setCloudUnclaimedPoints(Math.max(0, cloudUnclaimedPoints - claimedAmt));
+    }
   };
 
   // Calculate today's focus metrics for header pill and analytics overview
