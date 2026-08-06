@@ -12,7 +12,8 @@ export default function Header({
   onToggleTheme,
   isSyncing = false,
   onSyncCloud,
-  hasActiveSprint = false
+  hasActiveSprint = false,
+  isCutoffModalOpen = false
 }) {
   const isDark = settings?.theme !== 'light';
 
@@ -39,16 +40,18 @@ export default function Header({
           </button>
 
           <button 
-            className={`nav-btn ${activeTab === 'bank' ? 'active' : ''}`}
+            className={`nav-btn ${activeTab === 'bank' ? 'active' : ''} ${isCutoffModalOpen ? 'nav-btn-locked' : ''}`}
             onClick={() => onSelectTab('bank')}
+            title={isCutoffModalOpen ? "Respond to sprint check-in first" : "Question Bank"}
           >
             <Database size={18} />
             <span>Bank</span>
           </button>
 
           <button 
-            className={`nav-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+            className={`nav-btn ${activeTab === 'analytics' ? 'active' : ''} ${isCutoffModalOpen ? 'nav-btn-locked' : ''}`}
             onClick={() => onSelectTab('analytics')}
+            title={isCutoffModalOpen ? "Respond to sprint check-in first" : "Analytics"}
           >
             <BarChart3 size={18} />
             <span>Analytics</span>
@@ -213,6 +216,11 @@ export default function Header({
           color: var(--text-secondary);
           font-size: 0.85rem;
           font-weight: 600;
+        }
+
+        .nav-btn-locked {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .nav-btn:hover {

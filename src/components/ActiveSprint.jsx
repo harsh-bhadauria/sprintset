@@ -1,6 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ExternalLink, CheckCircle2, RefreshCw, Square, Check, Pause, Play, AlertTriangle, Zap, RotateCcw, Layers, Award, AlertCircle, Flag, Clock } from 'lucide-react';
+import { ExternalLink, CheckCircle2, XCircle, RefreshCw, Square, Check, Pause, Play, AlertTriangle, Zap, RotateCcw, Layers, Award, AlertCircle, Flag, Clock, Plus, Minus, HelpCircle, X } from 'lucide-react';
 import { getReplacementQuestion } from '../utils/weightedPicker';
+import { inferConfidence } from './SessionSummary';
+
+export const formatTime = (secs) => {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
+export const getQuestionLink = (q) => {
+  if (q && q.link && q.link.trim() !== '') {
+    return q.link;
+  }
+  const query = encodeURIComponent(`${q ? q.name : ''} leetcode`);
+  return `https://www.google.com/search?q=${query}`;
+};
 
 export default function ActiveSprint({
   activeSprintState,
@@ -8,7 +23,8 @@ export default function ActiveSprint({
   allQuestions = [],
   questionStates = {},
   onUpdateActiveSprintState,
-  onFinishSprint
+  onFinishSprint,
+  onCancelSprint
 }) {
   const { sessionData, currentIndex = 0, attempts = 0, results = [], preCountdownDone = false, questionStartElapsedSec = 0 } = activeSprintState || {};
   const { durationSec, queue = [], seed, totalPausedMs = 0, isPaused = false, pauseStartedAtMs = null } = sessionData || {};
@@ -16,6 +32,10 @@ export default function ActiveSprint({
   // Pre-sprint 3-2-1 countdown state
   const [preCountdown, setPreCountdown] = useState(preCountdownDone ? 0 : 3);
   const [actualStartMs, setActualStartMs] = useState(sessionData?.startedAtMs || Date.now());
+
+  // Post-sprint Cut-Off Interstitial Modal state
+  const [cutoffModalData, setCutoffModalData] = useState(null);
+  const [cutoffAttemptsInput, setCutoffAttemptsInput] = useState(attempts || 0);
 
   // 3-2-1 Countdown effect
   useEffect(() => {
@@ -79,7 +99,7 @@ export default function ActiveSprint({
   const currentQuestion = queue[currentIndex];
 
   useEffect(() => {
-    if (isPaused || preCountdown > 0) return;
+    if (isPaused || preCountdown > 0 || cutoffModalData) return;
 
     const timer = setInterval(() => {
       const remain = computeTimeLeft();
@@ -90,7 +110,6 @@ export default function ActiveSprint({
         lowTimeAlertFired.current = true;
         setShowLowTimeWarning(true);
         setShowLowTimeToast(true);
-        // Auto-dismiss toast after 4 seconds
         setTimeout(() => setShowLowTimeToast(false), 4000);
       }
 
@@ -99,17 +118,16 @@ export default function ActiveSprint({
         if (!timesUpFired.current) {
           timesUpFired.current = true;
           setShowTimesUpFlash(true);
-          // Brief flash then transition to completion
           setTimeout(() => {
             setShowTimesUpFlash(false);
-            finishSprintWithResults(results, false); // Timer expiry is NOT early
+            finishSprintWithResults(results, false);
           }, 1200);
         }
       }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [actualStartMs, sessionData?.startedAtMs, durationSec, totalPausedMs, isPaused, pauseStartedAtMs, preCountdown, results]);
+  }, [actualStartMs, sessionData?.startedAtMs, durationSec, totalPausedMs, isPaused, pauseStartedAtMs, preCountdown, results, cutoffModalData]);
 
   const handleTogglePause = () => {
     if (isPaused) {
@@ -246,15 +264,115 @@ export default function ActiveSprint({
   };
 
   const handleCompleteSprint = () => {
-    finishSprintWithResults(results, true); // Manual stop = early
+    finishSprintWithResults(results, true);
   };
 
-  const finishSprintWithResults = (finalResults, isEarly = false) => {
+  const finishSprintWithResults = (finalResults, isEarly = false, cutoffChoice = null) => {
     const currentLeft = computeTimeLeft();
     const totalDurationTaken = durationSec - currentLeft;
+    const fullResults = [...finalResults];
+
+    // Check if there is an active question being attempted when sprint finishes (and NOT ended early)
+    if (fullResults.length < queue.length && cutoffChoice === null && !isEarly) {
+      const activeQ = queue[fullResults.length];
+      if (activeQ) {
+        const startMs = sessionData?.startedAtMs || actualStartMs;
+        const currentElapsedSec = Math.floor((Date.now() - startMs - totalPausedMs) / 1000);
+        const activeTimeSec = Math.max(0, currentElapsedSec - (questionStartElapsedSec || 0));
+
+        if (activeTimeSec >= 3) {
+          // Open Interstitial Cut-off Overlay Modal
+          setCutoffModalData({
+            activeQ,
+            activeTimeSec,
+            isEarly,
+            finalResults,
+            totalDurationTaken
+          });
+          setCutoffAttemptsInput(attempts || 0);
+          onUpdateActiveSprintState({
+            ...activeSprintState,
+            isCutoffModalOpen: true
+          });
+          return;
+        }
+      }
+    }
+
+    // If ended early without cutoff choice, handle the current active question if time was spent
+    if (isEarly && fullResults.length < queue.length && cutoffChoice === null) {
+      const activeQ = queue[fullResults.length];
+      if (activeQ) {
+        const startMs = sessionData?.startedAtMs || actualStartMs;
+        const currentElapsedSec = Math.floor((Date.now() - startMs - totalPausedMs) / 1000);
+        const activeTimeSec = Math.max(0, currentElapsedSec - (questionStartElapsedSec || 0));
+
+        if (activeTimeSec > 0) {
+          const targetSec = ((settings?.timeWeightsByDifficulty?.[activeQ.difficulty]) || 8) * 60;
+          const isOverTime = activeTimeSec > targetSec;
+          fullResults.push({
+            questionId: activeQ.id,
+            questionName: activeQ.name,
+            questionLink: activeQ.link || '',
+            topic: activeQ.topic,
+            difficulty: activeQ.difficulty,
+            status: 'unsolved',
+            attempts: attempts || 0,
+            confidence: isOverTime ? 'shaky' : null,
+            timeSec: activeTimeSec
+          });
+        }
+      }
+    }
+
+    // Process cutoffChoice if provided from modal
+    if (cutoffChoice && cutoffModalData) {
+      const { activeQ, activeTimeSec } = cutoffModalData;
+      let finalStatus = cutoffChoice.status || 'unsolved';
+      let finalConfidence = null;
+
+      if (finalStatus === 'done') {
+        finalConfidence = inferConfidence({ status: 'done', attempts: cutoffChoice.attempts, timeSec: activeTimeSec, difficulty: activeQ.difficulty }, settings);
+      } else if (finalStatus === 'gave_up') {
+        finalConfidence = 'shaky';
+      } else {
+        const targetSec = ((settings?.timeWeightsByDifficulty?.[activeQ.difficulty]) || 8) * 60;
+        finalConfidence = activeTimeSec > targetSec ? 'shaky' : null;
+      }
+
+      fullResults.push({
+        questionId: activeQ.id,
+        questionName: activeQ.name,
+        questionLink: activeQ.link || '',
+        topic: activeQ.topic,
+        difficulty: activeQ.difficulty,
+        status: finalStatus,
+        attempts: cutoffChoice.attempts || 0,
+        confidence: finalConfidence,
+        timeSec: activeTimeSec
+      });
+    }
+
+    // Remaining upcoming questions that were never reached
+    for (let i = fullResults.length; i < queue.length; i++) {
+      const q = queue[i];
+      if (q) {
+        fullResults.push({
+          questionId: q.id,
+          questionName: q.name,
+          questionLink: q.link || '',
+          topic: q.topic,
+          difficulty: q.difficulty,
+          status: 'not_reached',
+          attempts: 0,
+          confidence: null,
+          timeSec: 0
+        });
+      }
+    }
 
     let points = 0;
-    finalResults.forEach(r => {
+    fullResults.forEach(r => {
       if (r.status === 'done') {
         const pts = settings.pointsByDifficulty[r.difficulty] || 20;
         points += pts;
@@ -270,27 +388,12 @@ export default function ActiveSprint({
       startedAt: new Date(sessionData?.startedAtMs || actualStartMs).toISOString(),
       durationSec,
       actualDurationSec: totalDurationTaken,
-      results: finalResults,
+      results: fullResults,
       points,
       maxPossiblePoints,
       totalQuota: queue.length,
       isEndedEarly: isEarly
     });
-  };
-
-  const formatTime = (secs) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // Question Link Fallback Helper
-  const getQuestionLink = (q) => {
-    if (q && q.link && q.link.trim() !== '') {
-      return q.link;
-    }
-    const query = encodeURIComponent(`${q ? q.name : ''} leetcode`);
-    return `https://www.google.com/search?q=${query}`;
   };
 
   const sessionPoints = results.reduce((sum, r) => {
@@ -306,12 +409,103 @@ export default function ActiveSprint({
     <div className="active-sprint-container">
       <div className={`unified-sprint-card glass-card ${animState === 'solved' ? 'pulse-success-glow' : ''} ${animState === 'too-easy' ? 'pulse-blue-glow' : ''} ${animState === 'gave-up' ? 'pulse-red-glow' : ''} ${wrongAnimTrigger ? 'pulse-amber-glow' : ''}`}>
         
-        {/* PRE-SPRINT 3-2-1 COUNTDOWN OVERLAY WITH HEAVY 28px BLUR */}
+        {/* PRE-SPRINT 3-2-1 COUNTDOWN OVERLAY WITH HEAVY 32px BLUR */}
         {preCountdown > 0 && (
           <div className="pre-countdown-overlay">
             <div className="pre-countdown-content">
               <span className="pre-countdown-num">{preCountdown}</span>
               <span className="pre-countdown-label">GET READY</span>
+              {onCancelSprint && (
+                <button 
+                  type="button" 
+                  className="btn btn-secondary btn-sm mt-3"
+                  onClick={onCancelSprint}
+                  style={{ opacity: 0.9, marginTop: '1rem' }}
+                >
+                  <X size={14} /> Cancel Sprint
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* POST-SPRINT CUT-OFF INTERSTITIAL MODAL OVERLAY */}
+        {cutoffModalData && (
+          <div className="cutoff-modal-overlay">
+            <div className="cutoff-modal-content glass-card">
+              <div className="cutoff-modal-icon-ring">
+                <Clock size={28} style={{ color: 'var(--amber-main)' }} />
+              </div>
+
+              <h3 className="cutoff-modal-title">Sprint Time Expired!</h3>
+
+              <p className="cutoff-modal-sub">
+                You were actively working on <span className="highlight-q-name">{cutoffModalData.activeQ.name}</span> ({formatTime(cutoffModalData.activeTimeSec)} spent). Did you manage to submit your code before the clock hit 0:00?
+              </p>
+
+              <div className="cutoff-modal-stepper-row">
+                <span className="cutoff-stepper-label">Wrong Attempts Logged:</span>
+                <div className="cutoff-stepper-controls">
+                  <button 
+                    type="button" 
+                    className="btn-stepper-circle"
+                    onClick={() => setCutoffAttemptsInput(prev => Math.max(0, prev - 1))}
+                    title="Decrease wrong attempts"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span className="cutoff-attempts-display">{cutoffAttemptsInput}</span>
+                  <button 
+                    type="button" 
+                    className="btn-stepper-circle"
+                    onClick={() => setCutoffAttemptsInput(prev => prev + 1)}
+                    title="Increase wrong attempts"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="cutoff-modal-btn-group">
+                <button 
+                  type="button" 
+                  className="cutoff-btn cutoff-btn-solved"
+                  onClick={() => {
+                    const choice = { status: 'done', attempts: cutoffAttemptsInput };
+                    finishSprintWithResults(cutoffModalData.finalResults, cutoffModalData.isEarly, choice);
+                    setCutoffModalData(null);
+                  }}
+                >
+                  <CheckCircle2 size={16} />
+                  <span>Yes, Solved!</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  className="cutoff-btn cutoff-btn-gaveup"
+                  onClick={() => {
+                    const choice = { status: 'gave_up', attempts: cutoffAttemptsInput };
+                    finishSprintWithResults(cutoffModalData.finalResults, cutoffModalData.isEarly, choice);
+                    setCutoffModalData(null);
+                  }}
+                >
+                  <XCircle size={16} />
+                  <span>Gave Up</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  className="cutoff-btn cutoff-btn-unsolved"
+                  onClick={() => {
+                    const choice = { status: 'unsolved', attempts: cutoffAttemptsInput };
+                    finishSprintWithResults(cutoffModalData.finalResults, cutoffModalData.isEarly, choice);
+                    setCutoffModalData(null);
+                  }}
+                >
+                  <Clock size={16} />
+                  <span>Didn't Finish</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -496,21 +690,31 @@ export default function ActiveSprint({
 
       {/* Confirmation Modal */}
       {showConfirmFinish && (
-        <div className="modal-overlay" onClick={() => setShowConfirmFinish(false)}>
-          <div className="modal-card glass-card confirm-modal" onClick={e => e.stopPropagation()}>
-            <div className="confirm-header">
-              <AlertTriangle size={24} className="text-amber" />
-              <h3>End Sprint Early?</h3>
+        <div className="cutoff-modal-overlay" onClick={() => setShowConfirmFinish(false)}>
+          <div className="cutoff-modal-content confirm-modal-card glass-card" onClick={e => e.stopPropagation()}>
+            <div className="cutoff-modal-icon-ring icon-ring-danger">
+              <AlertTriangle size={28} style={{ color: '#ef4444' }} />
             </div>
-            <p className="confirm-desc">
-              Your current progress and points earned in this sprint will be saved.
+
+            <h3 className="cutoff-modal-title">End Sprint Early?</h3>
+
+            <p className="cutoff-modal-sub">
+              Your current progress and points earned in this sprint will be saved in your session history.
             </p>
 
-            <div className="confirm-actions">
-              <button className="btn btn-secondary" onClick={() => setShowConfirmFinish(false)}>
-                Cancel
+            <div className="cutoff-modal-btn-group">
+              <button 
+                type="button" 
+                className="cutoff-btn cutoff-btn-secondary" 
+                onClick={() => setShowConfirmFinish(false)}
+              >
+                Continue Sprint
               </button>
-              <button className="btn btn-danger" onClick={handleCompleteSprint}>
+              <button 
+                type="button" 
+                className="cutoff-btn cutoff-btn-gaveup" 
+                onClick={handleCompleteSprint}
+              >
                 End Sprint
               </button>
             </div>
@@ -572,10 +776,221 @@ export default function ActiveSprint({
           display: flex;
           align-items: center;
           justify-content: center;
-          background: var(--bg-scrim-translucent);
-          backdrop-filter: blur(28px);
-          -webkit-backdrop-filter: blur(28px);
+          background: rgba(9, 11, 16, 0.96);
+          backdrop-filter: blur(32px);
+          -webkit-backdrop-filter: blur(32px);
           border-radius: var(--radius-lg);
+          transition: background 0.3s ease;
+        }
+
+        [data-theme="light"] .pre-countdown-overlay {
+          background: rgba(248, 250, 252, 0.96);
+        }
+
+        /* Post-Sprint Cut-Off Interstitial Modal */
+        .cutoff-modal-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: 200;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(9, 11, 16, 0.92);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          padding: 1.5rem;
+          transition: background 0.3s ease;
+        }
+
+        [data-theme="light"] .cutoff-modal-overlay {
+          background: rgba(248, 250, 252, 0.92);
+        }
+
+        .cutoff-modal-content {
+          max-width: 500px;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 2.25rem 2rem;
+          gap: 1.25rem;
+          border: 1px solid rgba(var(--accent-rgb), 0.35);
+          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4), 0 0 35px rgba(var(--accent-rgb), 0.15);
+          background: var(--bg-card);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border-radius: var(--radius-lg);
+          color: var(--text-primary);
+        }
+
+        [data-theme="light"] .cutoff-modal-content {
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 0 30px rgba(var(--accent-rgb), 0.15);
+        }
+
+        .cutoff-modal-icon-ring {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: rgba(var(--accent-rgb), 0.12);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(var(--accent-rgb), 0.3);
+          box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.2);
+        }
+
+        .cutoff-modal-title {
+          font-family: var(--font-heading);
+          font-size: 1.5rem;
+          font-weight: 800;
+          margin: 0;
+          color: var(--text-primary);
+          letter-spacing: -0.02em;
+        }
+
+        .cutoff-modal-sub {
+          font-size: 0.92rem;
+          color: var(--text-muted);
+          line-height: 1.6;
+          margin: 0;
+        }
+
+        .highlight-q-name {
+          color: var(--amber-main);
+          font-weight: 700;
+          background: rgba(var(--accent-rgb), 0.12);
+          padding: 0.15rem 0.5rem;
+          border-radius: var(--radius-sm);
+          border: 1px solid rgba(var(--accent-rgb), 0.25);
+        }
+
+        .cutoff-modal-stepper-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          background: var(--bg-input);
+          border: 1px solid var(--border-subtle);
+          padding: 0.75rem 1.25rem;
+          border-radius: var(--radius-md);
+        }
+
+        .cutoff-stepper-label {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+
+        .cutoff-stepper-controls {
+          display: flex;
+          align-items: center;
+          gap: 0.85rem;
+        }
+
+        .btn-stepper-circle {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: var(--bg-card);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-primary);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .btn-stepper-circle:hover {
+          background: var(--bg-card-hover);
+          border-color: var(--border-glow);
+          transform: translateY(-1px);
+        }
+
+        .cutoff-attempts-display {
+          font-family: var(--font-mono);
+          font-weight: 800;
+          font-size: 1.15rem;
+          min-width: 24px;
+          text-align: center;
+          color: var(--amber-main);
+        }
+
+        .cutoff-modal-btn-group {
+          display: flex;
+          gap: 0.75rem;
+          width: 100%;
+          margin-top: 0.5rem;
+        }
+
+        .cutoff-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.8rem 0.5rem;
+          border-radius: var(--radius-md);
+          font-size: 0.85rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+
+        .cutoff-btn-solved {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: #ffffff;
+          border: 1px solid rgba(16, 185, 129, 0.4);
+          box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+        }
+
+        .cutoff-btn-solved:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+        }
+
+        .cutoff-btn-gaveup {
+          background: rgba(239, 68, 68, 0.12);
+          color: #ef4444;
+          border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+
+        .cutoff-btn-gaveup:hover {
+          background: rgba(239, 68, 68, 0.22);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);
+        }
+
+        .cutoff-btn-unsolved {
+          background: rgba(var(--accent-rgb), 0.12);
+          color: var(--amber-main);
+          border: 1px solid rgba(var(--accent-rgb), 0.35);
+        }
+
+        .cutoff-btn-unsolved:hover {
+          background: rgba(var(--accent-rgb), 0.22);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.25);
+        }
+
+        .cutoff-btn-secondary {
+          background: var(--bg-input);
+          color: var(--text-primary);
+          border: 1px solid var(--border-subtle);
+        }
+
+        .cutoff-btn-secondary:hover {
+          background: var(--bg-card-hover);
+          border-color: var(--border-glow);
+          transform: translateY(-2px);
+        }
+
+        .icon-ring-danger {
+          background: rgba(239, 68, 68, 0.12) !important;
+          border-color: rgba(239, 68, 68, 0.3) !important;
+          box-shadow: 0 0 20px rgba(239, 68, 68, 0.2) !important;
         }
 
         .pre-countdown-content {
@@ -584,30 +999,32 @@ export default function ActiveSprint({
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0;
         }
 
         .pre-countdown-num {
           font-family: var(--font-heading);
           font-weight: 900;
-          font-size: 7rem;
+          font-size: clamp(11rem, 22vw, 18rem);
           color: var(--amber-main);
-          line-height: 1;
-          animation: popNum 0.75s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite;
+          line-height: 0.95;
+          animation: popNum 0.75s ease-out infinite;
         }
 
         @keyframes popNum {
-          0% { transform: scale(0.6); opacity: 0; }
-          40% { transform: scale(1.15); opacity: 1; }
-          100% { transform: scale(1); opacity: 0.9; }
+          0% { transform: scale(0.92); opacity: 0; }
+          25% { transform: scale(1); opacity: 1; }
+          85% { transform: scale(1); opacity: 1; }
+          100% { transform: scale(1.02); opacity: 0; }
         }
 
         .pre-countdown-label {
           font-family: var(--font-heading);
-          font-weight: 700;
-          letter-spacing: 0.2em;
-          color: var(--text-muted);
-          font-size: 0.9rem;
+          font-weight: 800;
+          letter-spacing: 0.35em;
+          color: var(--text-secondary);
+          font-size: 1.1rem;
+          margin-top: 1.75rem;
         }
 
         /* Micro Feedback Animations */

@@ -19,6 +19,7 @@ export default function AnalyticsView({ sessions, questionStates, questions, tod
     totalTimeSec += s.actualDurationSec || s.durationSec || 0;
 
     (s.results || []).forEach(r => {
+      if (r.status === 'not_reached') return;
       totalQuestionsAttempted += 1;
       if (r.status === 'done') {
         totalSolved += 1;

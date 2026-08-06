@@ -51,13 +51,13 @@ export default function App() {
   const [cloudUnclaimedPoints, setCloudUnclaimedPoints] = useState(null);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
-  // Total points earned across lifetime sessions
-  const totalLifetimePoints = useMemo(() => {
-    return (appState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
+  // Total Veto points earned across lifetime sessions (ONLY when veto integration was enabled)
+  const totalLifetimeVetoPoints = useMemo(() => {
+    return (appState.sessions || []).reduce((sum, s) => sum + (s.vetoPointsEarned || 0), 0);
   }, [appState.sessions]);
 
   const claimedVetoPoints = appState.claimedVetoPoints || 0;
-  const localUnclaimedPoints = Math.max(0, totalLifetimePoints - claimedVetoPoints);
+  const localUnclaimedPoints = Math.max(0, totalLifetimeVetoPoints - claimedVetoPoints);
   
   const unclaimedVetoPoints = cloudUnclaimedPoints !== null
     ? Math.max(cloudUnclaimedPoints, localUnclaimedPoints)
@@ -308,15 +308,20 @@ export default function App() {
       return r;
     });
 
+    const isVetoActive = Boolean(appState.settings?.vetoEnabled);
+    const vetoPointsEarned = isVetoActive ? (finishedSessionData.points || 0) : 0;
+
     const newSession = {
       id: 'sess_' + Date.now(),
       ...finishedSessionData,
+      vetoPointsEarned,
       results: processedResults
     };
 
     // 2. Update questionStates history (confidence and status)
     const nextQuestionStates = { ...appState.questionStates };
     processedResults.forEach(res => {
+      if (res.status === 'not_reached') return;
       nextQuestionStates[res.questionId] = {
         lastAttemptedAt: new Date().toISOString(),
         status: res.status,
@@ -335,7 +340,7 @@ export default function App() {
     setCompletedSession(newSession);
   };
 
-  // Update Confidence Rating from Summary View
+  // Update Confidence Rating or Result from Summary View
   const handleUpdateSessionConfidence = (sessionId, questionId, confidence) => {
     setAppState(prev => {
       const updatedSessions = prev.sessions.map(s => {
@@ -366,7 +371,6 @@ export default function App() {
       };
     });
 
-    // Update active completedSession if currently displayed
     setCompletedSession(prev => {
       if (!prev) return prev;
       const updatedResults = (prev.results || []).map(r => {
@@ -376,6 +380,84 @@ export default function App() {
         return r;
       });
       return { ...prev, results: updatedResults };
+    });
+  };
+
+  const handleUpdateSessionResult = (sessionId, questionId, updates) => {
+    setAppState(prev => {
+      const isVetoActive = Boolean(prev.settings?.vetoEnabled);
+      const updatedSessions = prev.sessions.map(s => {
+        if (s.id === sessionId || (!sessionId && s.id === prev.sessions[prev.sessions.length - 1]?.id)) {
+          let pointsEarned = s.points || 0;
+          let vetoPointsEarned = s.vetoPointsEarned || 0;
+          const updatedResults = (s.results || []).map(r => {
+            if (r.questionId === questionId) {
+              const oldStatus = r.status;
+              const newStatus = updates.status || oldStatus;
+              if (oldStatus !== 'done' && newStatus === 'done') {
+                const addedPts = (prev.settings.pointsByDifficulty[r.difficulty] || 20);
+                pointsEarned += addedPts;
+                if (isVetoActive) {
+                  vetoPointsEarned += addedPts;
+                }
+              }
+              return {
+                ...r,
+                ...updates,
+                status: newStatus,
+                isCutoff: false
+              };
+            }
+            return r;
+          });
+          return { ...s, points: pointsEarned, vetoPointsEarned, results: updatedResults };
+        }
+        return s;
+      });
+
+      const updatedQuestionStates = {
+        ...prev.questionStates,
+        [questionId]: {
+          ...(prev.questionStates[questionId] || {}),
+          lastAttemptedAt: new Date().toISOString(),
+          status: updates.status,
+          confidence: updates.confidence
+        }
+      };
+
+      return {
+        ...prev,
+        questionStates: updatedQuestionStates,
+        sessions: updatedSessions
+      };
+    });
+
+    setCompletedSession(prev => {
+      if (!prev) return prev;
+      let pointsEarned = prev.points || 0;
+      let vetoPointsEarned = prev.vetoPointsEarned || 0;
+      const isVetoActive = Boolean(appState.settings?.vetoEnabled);
+      const updatedResults = (prev.results || []).map(r => {
+        if (r.questionId === questionId) {
+          const oldStatus = r.status;
+          const newStatus = updates.status || oldStatus;
+          if (oldStatus !== 'done' && newStatus === 'done') {
+            const addedPts = (appState.settings.pointsByDifficulty[r.difficulty] || 20);
+            pointsEarned += addedPts;
+            if (isVetoActive) {
+              vetoPointsEarned += addedPts;
+            }
+          }
+          return {
+            ...r,
+            ...updates,
+            status: newStatus,
+            isCutoff: false
+          };
+        }
+        return r;
+      });
+      return { ...prev, points: pointsEarned, vetoPointsEarned, results: updatedResults };
     });
   };
 
@@ -434,6 +516,14 @@ export default function App() {
     }));
   };
 
+  const handleSelectTab = (tabName) => {
+    if (activeSprintState?.isCutoffModalOpen && tabName !== 'sprint') {
+      showToast('Please respond to the sprint check-in first to complete your sprint!', 'error');
+      return;
+    }
+    setActiveTab(tabName);
+  };
+
   const handleStartAnotherSprint = () => {
     setCompletedSession(null);
     setActiveSprintState(null);
@@ -453,7 +543,7 @@ export default function App() {
       {/* Top Header Navigation */}
       <Header
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={handleSelectTab}
         todayFocusMinutes={todayStats.minutesFocused}
         vetoMinutes={vetoMinutes}
         vetoEnabled={Boolean(appState.settings?.vetoEnabled)}
@@ -463,6 +553,7 @@ export default function App() {
         isSyncing={isCloudSyncing}
         onSyncCloud={handleSyncCloud}
         hasActiveSprint={Boolean(activeSprintState)}
+        isCutoffModalOpen={Boolean(activeSprintState?.isCutoffModalOpen)}
       />
 
       <VetoRewardsModal
@@ -484,6 +575,7 @@ export default function App() {
               questionStates={appState.questionStates}
               onUpdateActiveSprintState={handleUpdateActiveSprintState}
               onFinishSprint={handleFinishSprint}
+              onCancelSprint={() => setActiveSprintState(null)}
             />
           ) : completedSession ? (
             <SessionSummary
@@ -492,6 +584,7 @@ export default function App() {
               onStartNewSprint={handleStartAnotherSprint}
               onGoHome={() => setCompletedSession(null)}
               onUpdateSessionConfidence={handleUpdateSessionConfidence}
+              onUpdateSessionResult={handleUpdateSessionResult}
             />
           ) : (
             <StartSprintModal

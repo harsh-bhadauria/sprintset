@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Award, CheckCircle2, XCircle, Clock, Home, Play, Edit3, ExternalLink, PawPrint } from 'lucide-react';
+import { Award, CheckCircle2, XCircle, Clock, MinusCircle, Home, Play, Edit3, ExternalLink, PawPrint, Plus, Minus, HelpCircle } from 'lucide-react';
 
 export function formatTopicName(topic) {
   if (!topic) return '';
@@ -20,7 +20,7 @@ export function formatTopicName(topic) {
 }
 
 export function inferConfidence(result, settings = {}) {
-  if (result.status !== 'done') return null;
+  if (result.status !== 'done') return result.confidence || null;
   const weights = settings.timeWeightsByDifficulty || { Easy: 4, Medium: 8, Hard: 15 };
   const targetMin = weights[result.difficulty] || 5;
   const targetSec = targetMin * 60;
@@ -41,7 +41,8 @@ export default function SessionSummary({
   settings,
   onStartNewSprint,
   onGoHome,
-  onUpdateSessionConfidence
+  onUpdateSessionConfidence,
+  onUpdateSessionResult
 }) {
   // Question Link Fallback Helper (same logic as ActiveSprint)
   const getQuestionLink = (r) => {
@@ -72,9 +73,21 @@ export default function SessionSummary({
   const localResults = results;
   const totalTarget = totalQuota || localResults.length;
 
+  // Cut-off checkin state
+  const cutoffQ = localResults.find(r => r.isCutoff && r.status === 'unsolved');
+  const [cutoffAttempts, setCutoffAttempts] = useState(cutoffQ ? (cutoffQ.attempts || 0) : 0);
+  const [cutoffDismissed, setCutoffDismissed] = useState(false);
+
+  useEffect(() => {
+    if (cutoffQ) {
+      setCutoffAttempts(cutoffQ.attempts || 0);
+    }
+  }, [cutoffQ?.questionId]);
+
   const doneCount = localResults.filter(r => r.status === 'done').length;
   const gaveUpCount = localResults.filter(r => r.status === 'gave_up').length;
-  const resolvedCount = doneCount + gaveUpCount;
+  const unsolvedCount = localResults.filter(r => r.status === 'unsolved').length;
+  const resolvedCount = doneCount + gaveUpCount + unsolvedCount;
 
   // Sprint Outcome Classification Logic
   let sprintOutcomeState = 'ended_early';
@@ -132,10 +145,36 @@ export default function SessionSummary({
     } else if (sprintOutcomeState === 'finished') {
       return `Great focus! Sprint questions fully resolved (${doneCount} Solved, ${gaveUpCount} Gave Up). Weighted resurfacing will prioritize gave-up topics.`;
     } else if (sprintOutcomeState === 'times_up') {
-      return `Timer expired with ${resolvedCount} of ${totalTarget} questions resolved (${doneCount} Solved, ${gaveUpCount} Gave Up).`;
+      return `Timer expired with ${resolvedCount} of ${totalTarget} questions attempted (${doneCount} Solved, ${gaveUpCount} Gave Up, ${unsolvedCount} Unsolved).`;
     } else {
       return `Sprint stopped early. ${doneCount} solved and ${gaveUpCount} gave up out of ${totalTarget} questions.`;
     }
+  };
+
+  const handleResolveCutoff = (newStatus) => {
+    if (!cutoffQ || !onUpdateSessionResult) return;
+
+    if (newStatus === 'done') {
+      const conf = inferConfidence({ ...cutoffQ, attempts: cutoffAttempts, timeSec: cutoffQ.timeSec, status: 'done' }, settings);
+      onUpdateSessionResult(sessionId, cutoffQ.questionId, {
+        status: 'done',
+        attempts: cutoffAttempts,
+        confidence: conf
+      });
+    } else if (newStatus === 'gave_up') {
+      onUpdateSessionResult(sessionId, cutoffQ.questionId, {
+        status: 'gave_up',
+        attempts: cutoffAttempts,
+        confidence: 'shaky'
+      });
+    } else {
+      onUpdateSessionResult(sessionId, cutoffQ.questionId, {
+        status: 'unsolved',
+        attempts: cutoffAttempts,
+        confidence: cutoffQ.confidence || 'shaky'
+      });
+    }
+    setCutoffDismissed(true);
   };
 
   // Close floating popover on click outside
@@ -278,16 +317,24 @@ export default function SessionSummary({
                   const displayConfidence = localConfOverrides[r.questionId] || r.confidence || inferConfidence(r, settings);
 
                   return (
-                    <tr key={idx} className={r.status === 'done' ? 'row-done' : 'row-gave-up'}>
+                    <tr key={idx} className={r.status === 'done' ? 'row-done' : r.status === 'gave_up' ? 'row-gave-up' : r.status === 'unsolved' ? 'row-unsolved' : 'row-not-reached'}>
                       {/* Status Column */}
                       <td className="col-status-wide">
                         {r.status === 'done' ? (
                           <span className="status-pill status-solved">
                             <CheckCircle2 size={14} /> Solved
                           </span>
-                        ) : (
+                        ) : r.status === 'gave_up' ? (
                           <span className="status-pill status-gaveup">
                             <XCircle size={14} /> Gave Up
+                          </span>
+                        ) : r.status === 'unsolved' ? (
+                          <span className="status-pill status-unsolved">
+                            <Clock size={14} /> Unsolved
+                          </span>
+                        ) : (
+                          <span className="status-pill status-notreached">
+                            <MinusCircle size={14} /> Unseen
                           </span>
                         )}
                       </td>
@@ -321,11 +368,17 @@ export default function SessionSummary({
 
                       {/* Attempts */}
                       <td className="font-mono text-center">
-                        <span className="attempts-count">{r.status === 'gave_up' ? '-' : (r.attempts || 0) + 1}</span>
+                        <span className="attempts-count">
+                          {r.status === 'not_reached'
+                            ? '-'
+                            : (r.status === 'done' ? (r.attempts || 0) + 1 : (r.attempts > 0 ? r.attempts : '-'))}
+                        </span>
                       </td>
 
                       {/* Time Spent */}
-                      <td className="font-mono text-muted">{r.timeSec ? formatHoursMinSec(r.timeSec) : '-'}</td>
+                      <td className="font-mono text-muted">
+                        {(r.status === 'not_reached' || !r.timeSec) ? '-' : formatHoursMinSec(r.timeSec)}
+                      </td>
 
                       {/* Confidence Selector Cell */}
                       <td>
@@ -338,6 +391,17 @@ export default function SessionSummary({
                           >
                             <span className="conf-dot" />
                             <span className="conf-label">{displayConfidence ? displayConfidence.toUpperCase() : 'SET'}</span>
+                            <Edit3 size={11} className="conf-pencil-icon" />
+                          </button>
+                        ) : r.status === 'unsolved' && r.confidence ? (
+                          <button
+                            type="button"
+                            className={`conf-pill-btn conf-${displayConfidence}`}
+                            onClick={(e) => handleChipClick(e, r.questionId)}
+                            title="Click to override confidence"
+                          >
+                            <span className="conf-dot" />
+                            <span className="conf-label">{displayConfidence.toUpperCase()}</span>
                             <Edit3 size={11} className="conf-pencil-icon" />
                           </button>
                         ) : (
@@ -588,6 +652,87 @@ export default function SessionSummary({
           font-weight: 700;
         }
 
+        .cutoff-checkin-banner {
+          background: rgba(245, 158, 11, 0.08);
+          border: 1px solid rgba(245, 158, 11, 0.3);
+          border-radius: var(--radius-md);
+          padding: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .cutoff-banner-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+        }
+
+        .cutoff-banner-title {
+          font-family: var(--font-heading);
+          font-size: 0.98rem;
+          font-weight: 700;
+          margin: 0;
+          color: var(--text-primary);
+        }
+
+        .cutoff-banner-sub {
+          font-size: 0.82rem;
+          color: var(--text-muted);
+          margin: 0.25rem 0 0 0;
+        }
+
+        .cutoff-banner-actions {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+
+        .attempts-stepper {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          background: var(--bg-input);
+          border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-md);
+          padding: 0.25rem 0.5rem;
+          margin-right: 0.5rem;
+        }
+
+        .attempts-stepper-label {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          font-weight: 600;
+        }
+
+        .btn-stepper {
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid var(--border-subtle);
+          color: var(--text-primary);
+          border-radius: var(--radius-sm);
+          width: 22px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .btn-stepper:hover {
+          background: rgba(255, 255, 255, 0.15);
+        }
+
+        .attempts-num {
+          font-family: var(--font-mono);
+          font-weight: 700;
+          font-size: 0.88rem;
+          min-width: 16px;
+          text-align: center;
+        }
+
         .status-solved {
           background: rgba(16, 185, 129, 0.15);
           color: #10b981;
@@ -596,6 +741,16 @@ export default function SessionSummary({
         .status-gaveup {
           background: rgba(239, 68, 68, 0.15);
           color: #ef4444;
+        }
+
+        .status-unsolved {
+          background: rgba(245, 158, 11, 0.15);
+          color: #f59e0b;
+        }
+
+        .status-notreached {
+          background: rgba(148, 163, 184, 0.15);
+          color: #94a3b8;
         }
 
         .conf-pill-btn {
