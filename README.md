@@ -6,15 +6,11 @@
 [![React 19](https://img.shields.io/badge/React-19.0-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.2-646cff?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 
----
-
 ## Overview
 
 Staring at a 450-question sheet and deciding "what should I do today" is its own kind of procrastination. Sprintset removes the decision: pick a preset, get a queue, watch the clock. You show up, you solve, you're done. No scrolling, no "let me just pick an easy one first," no vague afternoon that quietly becomes zero problems solved.
 
 It's a personal tool I built because I genuinely could not deal with open-ended goals. Turns out giving yourself a contest instead of a to-do list works.
-
----
 
 ## Features
 
@@ -30,8 +26,6 @@ It's a personal tool I built because I genuinely could not deal with open-ended 
 
 - **Light and dark, several accents**: Because staring at the same palette for six hours straight does something to a person.
 
----
-
 ## Local Development
 
 ```bash
@@ -46,8 +40,9 @@ npm install
 npm run dev:host
 ```
 
----
-
 ## Credits
 
 Question names, topics, and difficulty tags for the included sheets are pulled from publicly available curated lists (Striver's A2Z, Blind 75, LeetCode SQL 50). Full credit to the original curators for the actual work of putting these lists together. Sprintset just gives you a clock and a reason to stop deliberating.
+
+<h1></h1>
+~ Made with ♥️ by Harsh
