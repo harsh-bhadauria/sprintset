@@ -7,22 +7,24 @@ import SessionSummary, { inferConfidence } from './components/SessionSummary';
 import QuestionBankManager from './components/QuestionBankManager';
 import AnalyticsView from './components/AnalyticsView';
 import SettingsView from './components/SettingsView';
-import VetoRewardsModal from './components/VetoRewardsModal';
+import VetoCouponModal from './components/VetoCouponModal';
 
 import { loadAppState, saveAppState, loadActiveSprintState, saveActiveSprintState } from './utils/storage';
 import { buildQuotaQuestionQueue } from './utils/weightedPicker';
-import { pushSupabaseSync, pullSupabaseSync, subscribeToRealtimeSync } from './utils/supabaseClient';
+import { generateVetoCoupon } from './utils/vetoCrypto';
 
 export default function App() {
   const [appState, setAppState] = useState(() => loadAppState());
   const [activeTab, setActiveTab] = useState('sprint');
-  const [isVetoModalOpen, setIsVetoModalOpen] = useState(false);
 
   // Active Sprint session state (persisted across tab switches and page reloads)
   const [activeSprintState, setActiveSprintState] = useState(() => loadActiveSprintState());
 
   // Completed Session state (shows summary screen after sprint finishes)
   const [completedSession, setCompletedSession] = useState(null);
+
+  // Veto Coupon Modal state
+  const [vetoModalOpen, setVetoModalOpen] = useState(false);
 
   // Auto-save appState to localStorage
   useEffect(() => {
@@ -48,183 +50,11 @@ export default function App() {
     saveActiveSprintState(activeSprintState);
   }, [activeSprintState]);
 
-  const [cloudUnclaimedPoints, setCloudUnclaimedPoints] = useState(null);
-  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
-
-  // Total Veto points earned across lifetime sessions (ONLY when veto integration was enabled)
-  const totalLifetimeVetoPoints = useMemo(() => {
-    return (appState.sessions || []).reduce((sum, s) => sum + (s.vetoPointsEarned || 0), 0);
-  }, [appState.sessions]);
-
-  const claimedVetoPoints = appState.claimedVetoPoints || 0;
-  const localUnclaimedPoints = Math.max(0, totalLifetimeVetoPoints - claimedVetoPoints);
-  
-  const unclaimedVetoPoints = cloudUnclaimedPoints !== null
-    ? Math.max(cloudUnclaimedPoints, localUnclaimedPoints)
-    : localUnclaimedPoints;
-
-  const vetoMinutes = Math.floor(unclaimedVetoPoints / 100);
-  const syncKey = appState.settings?.syncKey || 'SHADOW-PAW-482';
-
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'success', duration = 3000) => {
     setToast({ message, type });
     setTimeout(() => setToast(null), duration);
-  };
-
-  const getMergedState = (prev, remotePayload) => {
-    const nextState = { ...prev };
-    
-    // 1. Merge Settings using Last-Write-Wins (LWW)
-    if (remotePayload.settings) {
-      const localTime = prev.settings?.updatedAtMs || 0;
-      const remoteTime = remotePayload.settings.updatedAtMs || 0;
-      
-      if (remoteTime >= localTime || !prev.settings?.updatedAtMs) {
-        nextState.settings = { ...prev.settings, ...remotePayload.settings };
-      }
-    }
-    
-    // 2. Merge Veto Points
-    if (remotePayload.claimedVetoPoints !== undefined && remotePayload.claimedVetoPoints > (prev.claimedVetoPoints || 0)) {
-      nextState.claimedVetoPoints = remotePayload.claimedVetoPoints;
-    }
-
-    // 3. Merge Sessions (Deduplicate by ID)
-    if (remotePayload.sessions && Array.isArray(remotePayload.sessions)) {
-      const localSessionIds = new Set((prev.sessions || []).map(s => s.id));
-      const missingRemoteSessions = remotePayload.sessions.filter(s => !localSessionIds.has(s.id));
-      if (missingRemoteSessions.length > 0) {
-        nextState.sessions = [...(prev.sessions || []), ...missingRemoteSessions].sort((a, b) => {
-          return new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
-        });
-      }
-    }
-
-    // 4. Merge QuestionBank
-    if (remotePayload.questionStates) {
-      const nextQStates = { ...(prev.questionStates || {}) };
-      Object.keys(remotePayload.questionStates).forEach(qId => {
-        const remoteQ = remotePayload.questionStates[qId];
-        const localQ = nextQStates[qId];
-        if (!localQ || (new Date(remoteQ.lastAttemptedAt).getTime() > new Date(localQ.lastAttemptedAt).getTime())) {
-          nextQStates[qId] = remoteQ;
-        }
-      });
-      nextState.questionStates = nextQStates;
-    }
-
-    // 5. Merge Custom Questions
-    if (remotePayload.questions && Array.isArray(remotePayload.questions)) {
-      const localQIds = new Set((prev.questions || []).map(q => q.id));
-      const missingRemoteQ = remotePayload.questions.filter(q => !localQIds.has(q.id));
-      if (missingRemoteQ.length > 0) {
-        nextState.questions = [...(prev.questions || []), ...missingRemoteQ];
-      }
-    }
-
-    return nextState;
-  };
-
-  const performSmartMerge = (remotePayload) => {
-    if (!remotePayload) return;
-    if (remotePayload.unclaimedVetoPoints !== undefined) {
-      setCloudUnclaimedPoints(remotePayload.unclaimedVetoPoints);
-    }
-    setAppState(prev => getMergedState(prev, remotePayload));
-  };
-
-  // Initial Supabase Pull & Merge
-  useEffect(() => {
-    if (!syncKey) return;
-    setIsCloudSyncing(true);
-    pullSupabaseSync(syncKey).then(remote => {
-      if (remote) {
-        performSmartMerge(remote);
-      }
-      setIsCloudSyncing(false);
-    });
-  }, [syncKey]);
-
-  // Realtime WebSocket Subscription (silent background updates)
-  useEffect(() => {
-    if (!syncKey) return;
-    const unsubscribe = subscribeToRealtimeSync(syncKey, (remotePayload) => {
-      performSmartMerge(remotePayload);
-    });
-    return () => unsubscribe();
-  }, [syncKey]);
-
-  const handleSyncCloud = async () => {
-    setIsCloudSyncing(true);
-    try {
-      const remote = await pullSupabaseSync(syncKey);
-      let finalStateToPush = appState;
-      
-      if (remote) {
-        finalStateToPush = getMergedState(appState, remote);
-        setAppState(finalStateToPush);
-      }
-      
-      const mergedLifetimePoints = (finalStateToPush.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
-      const mergedClaimed = finalStateToPush.claimedVetoPoints || 0;
-      const mergedLocalUnclaimed = Math.max(0, mergedLifetimePoints - mergedClaimed);
-      
-      let finalUnclaimed = mergedLocalUnclaimed;
-      if (remote && remote.unclaimedVetoPoints !== undefined) {
-        setCloudUnclaimedPoints(remote.unclaimedVetoPoints);
-        finalUnclaimed = Math.max(mergedLocalUnclaimed, remote.unclaimedVetoPoints);
-      }
-      
-      const pushSuccess = await pushSupabaseSync(syncKey, {
-        ...finalStateToPush,
-        unclaimedVetoPoints: finalUnclaimed
-      });
-
-      if (pushSuccess) {
-        showToast('Supabase Sync successful!', 'success');
-      } else {
-        showToast('Supabase Sync failed: check network', 'error');
-      }
-    } catch (err) {
-      showToast('Supabase Sync failed', 'error');
-    } finally {
-      setIsCloudSyncing(false);
-    }
-  };
-
-  const handleClaimPoints = (claimedAmt) => {
-    const nextClaimed = claimedVetoPoints + claimedAmt;
-    
-    // Update local app state
-    setAppState(prev => {
-      const nextState = {
-        ...prev,
-        claimedVetoPoints: nextClaimed
-      };
-
-      // Push sync silently if enabled
-      if (syncKey) {
-        const lifetimePoints = (nextState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
-        const localUnclaimed = Math.max(0, lifetimePoints - nextClaimed);
-        const finalUnclaimed = cloudUnclaimedPoints !== null 
-          ? Math.max(0, cloudUnclaimedPoints - claimedAmt) 
-          : localUnclaimed;
-
-        pushSupabaseSync(syncKey, {
-          ...nextState,
-          unclaimedVetoPoints: finalUnclaimed
-        }).catch(err => console.error('Error syncing veto claim to cloud:', err));
-      }
-
-      return nextState;
-    });
-
-    // Instantly update local cloud cache to force UI reset
-    if (cloudUnclaimedPoints !== null) {
-      setCloudUnclaimedPoints(Math.max(0, cloudUnclaimedPoints - claimedAmt));
-    }
   };
 
   // Calculate today's focus metrics for header pill and analytics overview
@@ -253,6 +83,11 @@ export default function App() {
       questionsSolved: questionsSolvedToday,
       pointsEarned: pointsEarnedToday
     };
+  }, [appState.sessions]);
+
+  // Count available Veto coupons
+  const vetoRewardCount = useMemo(() => {
+    return (appState.sessions || []).filter(s => s.vetoCoupon && s.rewardMinutes > 0).length;
   }, [appState.sessions]);
 
   // Theme Toggle Handler
@@ -304,27 +139,7 @@ export default function App() {
     setActiveSprintState(updatedState);
   };
 
-  // Finish Sprint Handler
-  const handleForceUpload = async () => {
-    setIsCloudSyncing(true);
-    const lifetimePoints = (appState.sessions || []).reduce((sum, s) => sum + (s.points || 0), 0);
-    const claimed = appState.claimedVetoPoints || 0;
-    const localUnclaimed = Math.max(0, lifetimePoints - claimed);
-    const finalUnclaimed = cloudUnclaimedPoints !== null ? Math.max(cloudUnclaimedPoints, localUnclaimed) : localUnclaimed;
-    
-    const ok = await pushSupabaseSync(syncKey, {
-      ...appState,
-      unclaimedVetoPoints: finalUnclaimed
-    });
-    setIsCloudSyncing(false);
-    if (ok) {
-      showToast('State successfully forced to Supabase cloud!', 'success');
-    } else {
-      showToast('Failed to force upload state to cloud', 'error');
-    }
-  };
-
-  const handleFinishSprint = (finishedSessionData) => {
+  const handleFinishSprint = async (finishedSessionData) => {
     // 1. Auto-infer confidence for solved questions if missing
     const processedResults = (finishedSessionData.results || []).map(r => {
       if (r.status === 'done' && !r.confidence) {
@@ -334,12 +149,29 @@ export default function App() {
     });
 
     const isVetoActive = Boolean(appState.settings?.vetoEnabled);
-    const vetoPointsEarned = isVetoActive ? (finishedSessionData.points || 0) : 0;
+    const pointsEarned = finishedSessionData.points || 0;
+    const pointsPerMinute = appState.settings?.pointsPerMinute || 100;
+    const rewardMinutes = isVetoActive ? Math.floor(pointsEarned / pointsPerMinute) : 0;
+
+    const sessionId = 'sess_' + Date.now();
+    const pairingKey = appState.settings?.vetoPairingKey || 'sprintset-veto-secret';
+
+    let vetoCoupon = null;
+    if (isVetoActive && rewardMinutes > 0) {
+      const payload = {
+        sprintId: sessionId,
+        minutes: rewardMinutes,
+        nonce: window.crypto.randomUUID ? window.crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36)),
+        timestamp: Date.now()
+      };
+      vetoCoupon = await generateVetoCoupon(pairingKey, payload);
+    }
 
     const newSession = {
-      id: 'sess_' + Date.now(),
+      id: sessionId,
       ...finishedSessionData,
-      vetoPointsEarned,
+      rewardMinutes,
+      vetoCoupon,
       results: processedResults
     };
 
@@ -565,28 +397,25 @@ export default function App() {
         </div>
       )}
 
+      {/* Veto Coupon Modal */}
+      <VetoCouponModal
+        isOpen={vetoModalOpen}
+        onClose={() => setVetoModalOpen(false)}
+        sessions={appState.sessions}
+        vetoEnabled={appState.settings?.vetoEnabled || false}
+      />
+
       {/* Top Header Navigation */}
       <Header
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
         todayFocusMinutes={todayStats.minutesFocused}
-        vetoMinutes={vetoMinutes}
-        vetoEnabled={Boolean(appState.settings?.vetoEnabled)}
-        onOpenVetoModal={() => setIsVetoModalOpen(true)}
         settings={appState.settings}
         onToggleTheme={handleToggleTheme}
-        isSyncing={isCloudSyncing}
-        onSyncCloud={handleSyncCloud}
         hasActiveSprint={Boolean(activeSprintState)}
         isCutoffModalOpen={Boolean(activeSprintState?.isCutoffModalOpen)}
-      />
-
-      <VetoRewardsModal
-        isOpen={isVetoModalOpen}
-        onClose={() => setIsVetoModalOpen(false)}
-        unclaimedPoints={unclaimedVetoPoints}
-        onClaimPoints={handleClaimPoints}
-        onSyncCloud={handleSyncCloud}
+        vetoRewardCount={vetoRewardCount}
+        onOpenVetoCoupons={() => setVetoModalOpen(true)}
       />
 
       {/* Main View Router */}
@@ -650,7 +479,6 @@ export default function App() {
             onImportJSON={handleImportJSON}
             onImportCSV={handleImportCSV}
             onResetData={handleResetData}
-            onForceUpload={handleForceUpload}
           />
         )}
       </main>

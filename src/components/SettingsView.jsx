@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, PawPrint, Eye, EyeOff, Lock, RefreshCw, Check } from 'lucide-react';
+import { Settings, Download, Upload, Trash2, Save, FileText, Database, RotateCcw, AlertCircle, PawPrint, Eye, EyeOff, Lock } from 'lucide-react';
 import { exportStateJSON, importStateJSON } from '../utils/storage';
 import { exportToCSV, parseCSV } from '../utils/csvHandler';
-import { deleteSupabaseSync, generateRandomSyncKey } from '../utils/supabaseClient';
 
 export default function SettingsView({ 
   settings: propSettings, 
@@ -13,7 +12,6 @@ export default function SettingsView({
   onImportJSON, 
   onImportCSV, 
   onResetData,
-  onForceUpload,
   onStateImported,
   onResetAllData,
   onUpdateQuestions
@@ -31,6 +29,9 @@ export default function SettingsView({
   const savedWeightMedium = settings.timeWeightsByDifficulty?.Medium || 8;
   const savedWeightHard = settings.timeWeightsByDifficulty?.Hard || 15;
 
+  const savedPairingKey = settings.vetoPairingKey || 'sprintset-veto-secret';
+  const savedPtsPerMin = settings.pointsPerMinute || 100;
+
   // Local form state
   const [ptsEasy, setPtsEasy] = useState(savedPtsEasy);
   const [ptsMedium, setPtsMedium] = useState(savedPtsMedium);
@@ -40,11 +41,13 @@ export default function SettingsView({
   const [weightMedium, setWeightMedium] = useState(savedWeightMedium);
   const [weightHard, setWeightHard] = useState(savedWeightHard);
 
-  const [toastMsg, setToastMsg] = useState('');
-  const [showSettingsSyncKey, setShowSettingsSyncKey] = useState(false);
-  const [localSyncKey, setLocalSyncKey] = useState(settings.syncKey || '');
+  const [localPairingKey, setLocalPairingKey] = useState(savedPairingKey);
+  const [showPairingKey, setShowPairingKey] = useState(false);
+  const [localPtsPerMin, setLocalPtsPerMin] = useState(savedPtsPerMin);
 
-  // Auto-update local state when props (e.g. from cloud sync) change
+  const [toastMsg, setToastMsg] = useState('');
+
+  // Auto-update local state when props change
   useEffect(() => {
     setPtsEasy(savedPtsEasy);
     setPtsMedium(savedPtsMedium);
@@ -52,8 +55,9 @@ export default function SettingsView({
     setWeightEasy(savedWeightEasy);
     setWeightMedium(savedWeightMedium);
     setWeightHard(savedWeightHard);
-    setLocalSyncKey(settings.syncKey || '');
-  }, [savedPtsEasy, savedPtsMedium, savedPtsHard, savedWeightEasy, savedWeightMedium, savedWeightHard, settings.syncKey]);
+    setLocalPairingKey(savedPairingKey);
+    setLocalPtsPerMin(savedPtsPerMin);
+  }, [savedPtsEasy, savedPtsMedium, savedPtsHard, savedWeightEasy, savedWeightMedium, savedWeightHard, savedPairingKey, savedPtsPerMin]);
 
   // Check if current form inputs differ from saved settings baseline
   const hasUnsavedChanges = 
@@ -129,23 +133,6 @@ export default function SettingsView({
       settings
     };
     exportStateJSON(snapshot);
-  };
-
-  const [isDeletingCloud, setIsDeletingCloud] = useState(false);
-
-  const handleResetCloud = async () => {
-    const key = settings.syncKey || 'SHADOW-PAW-482';
-    if (window.confirm(`Are you sure you want to delete all cloud sync data stored under key "${key}" on Supabase? This action cannot be undone.`)) {
-      setIsDeletingCloud(true);
-      const ok = await deleteSupabaseSync(key);
-      setIsDeletingCloud(false);
-      if (ok) {
-        setToastMsg('Cloud data successfully deleted from Supabase!');
-      } else {
-        setToastMsg('Failed to delete cloud data. Check connection.');
-      }
-      setTimeout(() => setToastMsg(''), 3000);
-    }
   };
 
   const handleReset = () => {
@@ -393,12 +380,6 @@ export default function SettingsView({
               />
             </label>
             
-            {onForceUpload && (
-              <button className="btn btn-primary btn-sm ml-2" onClick={onForceUpload}>
-                <RefreshCw size={14} />
-                <span>Force Upload State</span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -427,66 +408,12 @@ export default function SettingsView({
         </div>
       </section>
 
-      {/* Supabase Realtime Cloud Sync & Google Auth Section */}
-      <section className="settings-stacked-section">
-        <div className="setting-single-line-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '1rem' }}>
-          <div className="setting-label-col">
-            <h3 className="setting-heading flex items-center gap-2 text-sky-400">
-              <Lock size={16} className="text-sky-400" /> Supabase Realtime Cloud Sync
-            </h3>
-            <p className="setting-subtext">Link your laptop and phone in real-time using a 6-digit Sync Passphrase or Google Sign-In</p>
-          </div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.25rem 0.5rem' }}>
-              <span className="text-xs text-muted font-bold">Passphrase:</span>
-              <input
-                type="text"
-                value={localSyncKey}
-                onChange={e => setLocalSyncKey(e.target.value.toUpperCase())}
-                placeholder="SHADOW-PAW-482"
-                className="font-mono font-bold uppercase text-center"
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '140px' }}
-              />
-              {localSyncKey !== (settings.syncKey || '') && (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    if (onSaveSettings) onSaveSettings({ ...settings, syncKey: localSyncKey });
-                    setToastMsg('Supabase Sync Key updated!');
-                    setTimeout(() => setToastMsg(''), 2000);
-                  }}
-                >
-                  Save
-                </button>
-              )}
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                const newRandom = generateRandomSyncKey();
-                setLocalSyncKey(newRandom);
-                if (onSaveSettings) onSaveSettings({ ...settings, syncKey: newRandom });
-                setToastMsg('Generated new Sync Key!');
-                setTimeout(() => setToastMsg(''), 2000);
-              }}
-            >
-              <RefreshCw size={14} />
-              <span>Generate Key</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Standalone Veto Integration Section */}
+      {/* Veto Coupon Integration Section */}
       <section className="settings-stacked-section veto-section-card">
         <div className="setting-single-line-row">
           <div className="setting-label-col">
-            <h3 className="setting-heading flex items-center gap-2"><PawPrint size={16} className="text-amber" /> Veto Integration</h3>
-            <p className="setting-subtext">Earn screen time in Veto's Time Bank when you complete DSA sprints</p>
+            <h3 className="setting-heading flex items-center gap-2"><PawPrint size={16} className="text-amber" /> Veto Coupon Integration</h3>
+            <p className="setting-subtext">Earn encrypted screen-time coupons when you complete DSA sprints. Redeem in Veto.</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -505,6 +432,78 @@ export default function SettingsView({
             </label>
           </div>
         </div>
+
+        {Boolean(settings.vetoEnabled) && (
+          <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Pairing Key */}
+            <div className="setting-single-line-row">
+              <div className="setting-label-col">
+                <h3 className="setting-heading" style={{ fontSize: '0.85rem' }}><Lock size={14} /> Veto Pairing Key</h3>
+                <p className="setting-subtext">Shared secret between Sprintset & Veto. Set the same key in both apps.</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.3rem 0.6rem' }}>
+                  <input
+                    type={showPairingKey ? 'text' : 'password'}
+                    value={localPairingKey}
+                    onChange={e => setLocalPairingKey(e.target.value)}
+                    placeholder="sprintset-veto-secret"
+                    className="font-mono"
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '180px', fontSize: '0.85rem' }}
+                  />
+                  <button type="button" className="icon-btn" onClick={() => setShowPairingKey(!showPairingKey)} style={{ padding: '0.2rem' }}>
+                    {showPairingKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                {localPairingKey !== savedPairingKey && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      onSaveSettings({ ...settings, vetoPairingKey: localPairingKey });
+                      setToastMsg('Pairing Key saved!');
+                      setTimeout(() => setToastMsg(''), 2000);
+                    }}
+                  >
+                    Save
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Conversion Rate */}
+            <div className="setting-single-line-row">
+              <div className="setting-label-col">
+                <h3 className="setting-heading" style={{ fontSize: '0.85rem' }}>Conversion Rate</h3>
+                <p className="setting-subtext">Sprint points needed per 1 minute of Veto screen time</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="number"
+                  min="1"
+                  value={localPtsPerMin}
+                  onChange={e => setLocalPtsPerMin(parseInt(e.target.value, 10) || 100)}
+                  className="font-mono"
+                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.35rem 0.6rem', color: 'var(--text-primary)', width: '80px', fontSize: '0.85rem', textAlign: 'center' }}
+                />
+                <span className="text-xs text-muted">pts / min</span>
+                {localPtsPerMin !== savedPtsPerMin && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      onSaveSettings({ ...settings, pointsPerMinute: localPtsPerMin });
+                      setToastMsg('Conversion rate saved!');
+                      setTimeout(() => setToastMsg(''), 2000);
+                    }}
+                  >
+                    Save
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Section 4: Danger Zone */}
@@ -514,21 +513,6 @@ export default function SettingsView({
             Danger Zone
           </h3>
           <p className="setting-subtext">Irreversible destructive actions for local storage and progress</p>
-        </div>
-
-        <div className="setting-single-line-row danger-row-bg" style={{ marginBottom: '0.75rem' }}>
-          <div className="setting-label-col">
-            <h3 className="setting-heading text-danger">Reset Cloud Data (Supabase)</h3>
-            <p className="setting-subtext">Irreversibly delete your synced progress payload from the cloud database</p>
-          </div>
-          <button
-            className="btn btn-danger btn-sm"
-            onClick={handleResetCloud}
-            disabled={isDeletingCloud}
-          >
-            <Trash2 size={14} />
-            <span>{isDeletingCloud ? 'Deleting...' : 'Delete Cloud Payload'}</span>
-          </button>
         </div>
 
         <div className="setting-single-line-row danger-row-bg">

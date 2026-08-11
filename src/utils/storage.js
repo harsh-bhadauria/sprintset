@@ -13,7 +13,10 @@ export const DEFAULT_SETTINGS = {
     Easy: 4,
     Medium: 8,
     Hard: 15
-  }
+  },
+  vetoEnabled: true,
+  vetoPairingKey: 'sprintset-veto-secret',
+  pointsPerMinute: 100
 };
 
 const DEFAULT_STATE = {

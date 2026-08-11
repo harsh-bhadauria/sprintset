@@ -1,19 +1,16 @@
 import React from 'react';
-import { Database, BarChart3, Settings, Zap, Moon, Sun, Clock, Triangle, PawPrint, RefreshCw } from 'lucide-react';
+import { Database, BarChart3, Settings, Zap, Moon, Sun, Clock, Triangle, Gift } from 'lucide-react';
 
 export default function Header({ 
   activeTab, 
   onSelectTab, 
   todayFocusMinutes = 0,
-  vetoMinutes = 0,
-  vetoEnabled = true,
-  onOpenVetoModal,
   settings = {}, 
   onToggleTheme,
-  isSyncing = false,
-  onSyncCloud,
   hasActiveSprint = false,
-  isCutoffModalOpen = false
+  isCutoffModalOpen = false,
+  vetoRewardCount = 0,
+  onOpenVetoCoupons = () => {}
 }) {
   const isDark = settings?.theme !== 'light';
 
@@ -62,48 +59,31 @@ export default function Header({
         <div className="header-right-group">
           {/* Metrics & Status Pills */}
           <div className="header-metrics-group">
-            {isSyncing && (
-              <div className="today-metric-pill sync-indicator-pill" title="Syncing with Supabase Realtime">
-                <RefreshCw size={14} className="sync-spin" />
-                <span className="text-xs font-semibold">Syncing</span>
-              </div>
-            )}
-
             <div className="today-metric-pill" title="Total focus minutes logged today">
               <Clock size={15} className="text-amber flex-shrink-0" />
               <span><strong>{todayFocusMinutes}m</strong><span className="pill-text-long"> focused</span></span>
             </div>
-
-            {vetoEnabled && (
-              <button 
-                type="button"
-                className="today-metric-pill veto-metric-pill"
-                onClick={onOpenVetoModal}
-                title="Veto Time Bank Rewards"
-              >
-                <PawPrint size={15} className="text-amber flex-shrink-0" />
-                <span><strong>+{vetoMinutes}m</strong><span className="pill-text-long"> Veto</span></span>
-              </button>
-            )}
           </div>
 
-          {/* Quick Actions (Theme, Sync, Settings) */}
+          {/* Quick Actions (Theme, Settings, Veto) */}
           <div className="header-quick-actions">
+            {Boolean(settings?.vetoEnabled) && (
+              <button 
+                className="icon-btn veto-coupon-btn" 
+                onClick={onOpenVetoCoupons} 
+                title={`Veto coupons (${vetoRewardCount})`}
+              >
+                <Gift size={18} />
+                {vetoRewardCount > 0 && <span className="veto-badge">{vetoRewardCount}</span>}
+              </button>
+            )}
+            
             <button 
               className="icon-btn" 
               onClick={onToggleTheme} 
               title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
             >
               {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-
-            <button 
-              className={`icon-btn ${isSyncing ? 'sync-spin' : ''}`}
-              onClick={onSyncCloud}
-              disabled={isSyncing}
-              title="Sync Cloud Data (Supabase Realtime)"
-            >
-              <RefreshCw size={18} />
             </button>
 
             <button 
@@ -279,12 +259,34 @@ export default function Header({
           cursor: pointer;
           transition: all var(--transition-fast);
           flex-shrink: 0;
+          position: relative;
         }
 
         .icon-btn:hover, .icon-btn.active-icon {
           color: var(--text-primary);
           border-color: rgba(255, 255, 255, 0.2);
           background: var(--bg-card-hover);
+        }
+
+        .veto-coupon-btn {
+          position: relative;
+        }
+
+        .veto-badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+          color: white;
+          font-size: 0.65rem;
+          font-weight: 700;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
         /* 2-Row Responsive Mobile Header */
